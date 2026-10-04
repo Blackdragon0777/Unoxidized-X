@@ -69,7 +69,7 @@ class MainActivity : ComponentActivity() {
     var shiz by remember { mutableStateOf(Sh.ready()) }
     fun run(cmd: String) { log = "Running..."; thread { val r = Sh.run(cmd); log = "$ $cmd\n$r"; shiz = Sh.ready() } }
     val modeId = mapOf("Performance" to 2, "Standard" to 1, "Battery" to 3)
-    fun game() = "cmd game set --mode ${modeId[mode]} --downscale ${"%.2f".format(scale)} --fps $fps $pkg"
+    fun game() = "cmd game set --mode ${modeId[mode]} --downscale ${ds(scale)} --fps $fps $pkg"
     ModalNavigationDrawer({ ModalDrawerSheet(drawerContainerColor = Color(0xFF0A0A0A)) {
         Text("UNOXIDIZED X", Modifier.padding(24.dp), fontSize = 20.sp, fontWeight = FontWeight.Black, letterSpacing = 3.sp)
         pages.forEachIndexed { i, p -> NavigationDrawerItem({ Text(p) }, i == page, { page = i; scope.launch { drawer.close() } }, Modifier.padding(horizontal = 12.dp)) }
@@ -109,3 +109,5 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
+fun ds(s: Float): String = if (s >= 0.995f) "disable" else "%.2f".format(java.util.Locale.US, s).trimEnd('0').trimEnd('.')
