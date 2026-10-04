@@ -62,7 +62,7 @@ class MainActivity : ComponentActivity() {
     val drawer = rememberDrawerState(DrawerValue.Closed); val scope = rememberCoroutineScope()
     val pages = listOf("Dashboard", "Resolution", "Gaming", "Display", "Step-by-step guide", "Account")
     var page by remember { mutableStateOf(0) }
-    var pkg by remember { mutableStateOf("com.activision.callofduty.shooter") }
+    var pkg by remember { mutableStateOf("com.garena.game.codm") }
     var scale by remember { mutableStateOf(0.8f) }; var fps by remember { mutableStateOf("60") }
     var mode by remember { mutableStateOf("Performance") }; var hz by remember { mutableStateOf("60") }
     var log by remember { mutableStateOf("Log output appears here.") }
