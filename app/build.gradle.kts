@@ -1,8 +1,9 @@
 plugins{id("com.android.application");id("org.jetbrains.kotlin.android")}
 android{namespace="com.unoxidized.x";compileSdk=34
-defaultConfig{applicationId="com.unoxidized.x";minSdk=26;targetSdk=34;versionCode=2;versionName="2.0"}
-signingConfigs{create("ux"){storeFile=file("ux.keystore");storePassword="unoxidized";keyAlias="ux";keyPassword="unoxidized"}}
+defaultConfig{applicationId="com.unoxidized.x";minSdk=26;targetSdk=34;versionCode=3;versionName="3.0"}
+signingConfigs{create("ux"){storeFile=rootProject.file("app/ux.keystore");storePassword="unoxidized";keyAlias="ux";keyPassword="unoxidized"}}
 buildTypes{getByName("debug"){signingConfig=signingConfigs.getByName("ux")}}
+sourceSets.getByName("main").java.srcDir(rootProject.file("shared"))
 buildFeatures{compose=true};composeOptions{kotlinCompilerExtensionVersion="1.5.14"}
 compileOptions{sourceCompatibility=JavaVersion.VERSION_17;targetCompatibility=JavaVersion.VERSION_17}
 kotlinOptions{jvmTarget="17"}}

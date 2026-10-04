@@ -1,42 +1,14 @@
 package com.unoxidized.x
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
-import android.provider.Settings
-import android.util.Base64
+import android.net.Uri
+import android.os.Build
 import rikka.shizuku.Shizuku
-import java.security.*
-import java.security.spec.X509EncodedKeySpec
-
-object License {
-    fun deviceId(c: Context) = Settings.Secure.getString(c.contentResolver, Settings.Secure.ANDROID_ID).take(12).uppercase()
-    private fun d(x: String) = Base64.decode(x, Base64.URL_SAFE or Base64.NO_PADDING)
-    fun clean(k: String) = k.filter { !it.isWhitespace() }
-    private fun parts(key: String) = String(d(clean(key).drop(3).split(".")[0])).split("|")
-    /** null = valid, otherwise a readable error */
-    fun check(c: Context, raw: String): String? = try {
-        val k = clean(raw)
-        if (!k.startsWith("UX-") || !k.contains(".")) "That doesn't look like a key. Keys start with UX-" else {
-            val (p, s) = k.drop(3).split(".")
-            val pk = KeyFactory.getInstance("EC").generatePublic(X509EncodedKeySpec(Base64.decode(Pub.KEY, Base64.DEFAULT)))
-            val sg = Signature.getInstance("SHA256withECDSA").apply { initVerify(pk); update(d(p)) }
-            val (dev, exp, _) = String(d(p)).split("|")
-            when {
-                !sg.verify(d(s)) -> "Invalid key (copy it again, the whole thing)"
-                dev != deviceId(c) -> "This key is for device $dev. Your device ID is ${deviceId(c)}"
-                exp.toLong() < System.currentTimeMillis() / 86400000 -> "This key has expired"
-                else -> null
-            }
-        }
-    } catch (e: Exception) { "Invalid key (${e.javaClass.simpleName})" }
-    fun info(key: String) = try { parts(key)[2] } catch (e: Exception) { "?" }
-    fun expiry(key: String): String = try {
-        val exp = parts(key)[1].toLong(); val left = exp - System.currentTimeMillis() / 86400000
-        if (left > 36500) "Lifetime" else java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.US).format(java.util.Date(exp * 86400000)) + "  ($left days left)"
-    } catch (e: Exception) { "?" }
-}
 
 object Sh {
-    fun ready() = try { Shizuku.pingBinder() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED } catch (e: Throwable) { false }
+    fun running() = try { Shizuku.pingBinder() } catch (e: Throwable) { false }
+    fun granted() = try { Shizuku.pingBinder() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED } catch (e: Throwable) { false }
     fun ask() = try { Shizuku.requestPermission(0) } catch (e: Throwable) {}
     fun run(cmd: String): String = try {
         val m = Shizuku::class.java.getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java).apply { isAccessible = true }
@@ -44,4 +16,17 @@ object Sh {
         val o = p.inputStream.bufferedReader().readText() + p.errorStream.bufferedReader().readText()
         p.waitFor(); o.ifBlank { "OK" }
     } catch (e: Throwable) { "Error: ${e.message}" }
+}
+
+object Env {
+    const val SZ = "moe.shizuku.privileged.api"
+    fun installed(c: Context) = try { c.packageManager.getPackageInfo(SZ, 0); true } catch (e: Exception) { false }
+    private fun go(c: Context, i: Intent): Boolean = try { c.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true } catch (e: Exception) { false }
+    fun openApp(c: Context, pkg: String) { c.packageManager.getLaunchIntentForPackage(pkg)?.let { go(c, it) } }
+    fun installShizuku(c: Context) { if (!go(c, Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$SZ")))) go(c, Intent(Intent.ACTION_VIEW, Uri.parse("https://shizuku.rikka.app/download/"))) }
+    fun openDev(c: Context) { go(c, Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)) }
+    fun hz(c: Context): List<Int> = try { (c.getSystemService(Context.DISPLAY_SERVICE) as android.hardware.display.DisplayManager).getDisplay(0).supportedModes.map { Math.round(it.refreshRate) }.distinct().sorted() } catch (e: Exception) { listOf(60) }
+    fun device() = "${Build.MANUFACTURER} ${Build.MODEL}".replaceFirstChar { it.uppercase() }
+    fun soc(): String = if (Build.VERSION.SDK_INT >= 31) Build.SOC_MODEL else Build.HARDWARE
+    fun access(): String = try { if (Shizuku.getUid() == 0) "Root" else "ADB shell" } catch (e: Throwable) { "?" }
 }

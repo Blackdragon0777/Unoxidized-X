@@ -1,4 +1,4 @@
-name: Build APK
+name: Build APKs
 on: [workflow_dispatch, push]
 jobs:
   build:
@@ -10,5 +10,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with: {gradle-version: "8.7"}
       - run: gradle assembleDebug
+      - run: |
+          mkdir -p out
+          cp app/build/outputs/apk/debug/app-debug.apk "out/Unoxidized X.apk"
+          cp generator/build/outputs/apk/debug/generator-debug.apk "out/Unoxidized Generator.apk"
       - uses: actions/upload-artifact@v4
-        with: {name: UnoxidizedX-apk, path: app/build/outputs/apk/debug/*.apk}
+        with: {name: UnoxidizedX, path: out}
