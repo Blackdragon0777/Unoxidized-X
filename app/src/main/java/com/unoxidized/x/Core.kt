@@ -9,7 +9,7 @@ import java.security.spec.X509EncodedKeySpec
 
 object License {
     // Paste the PUBLIC KEY printed by tools/keygen.py here
-    const val PUB = "PASTE_PUBLIC_KEY_HERE"
+    const val PUB = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZ9ir9pfMV/XNyZ9DOc04Y9Tf8mnVxVKTQUZC246F/1aXFNJiu4TMj5cn9I2HxXYnfwjOIxdlWlEQeX+ZiaK/wA=="
     fun deviceId(c: Context) = Settings.Secure.getString(c.contentResolver, Settings.Secure.ANDROID_ID).take(12).uppercase()
     /** returns null if valid, otherwise an error message */
     fun check(c: Context, key: String): String? = try {
