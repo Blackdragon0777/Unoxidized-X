@@ -34,8 +34,8 @@ class GenActivity : ComponentActivity() {
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
         val sp = getSharedPreferences("gen", 0); UiFlags.reduceMotion = sp.getBoolean("rm", false); UiFlags.haptics = sp.getBoolean("hp", true)
-        setContent { MaterialTheme(darkColorScheme(primary = Color.White, onPrimary = Color.Black, background = Color.Black, surface = Color(0xFF0B0B0B), onSurface = Color.White)) {
-            Surface(Modifier.fillMaxSize(), color = Color.Black) { ToastRoot { TechBackground { GenBoot(this@GenActivity) } } } } }
+        setContent { MaterialTheme(darkColorScheme(primary = Glow, onPrimary = Color.White, background = Bg0, surface = Bg1, onSurface = Txt)) {
+            Surface(Modifier.fillMaxSize(), color = Bg0) { ToastRoot { TechBackground(painterResource(R.drawable.bg_char)) { GenBoot(this@GenActivity) } } } } }
     }
 }
 
@@ -47,20 +47,21 @@ class GenActivity : ComponentActivity() {
     fun left(dev: String): Long { val i = sp.getLong("i_$dev", -1L); return if (i < 0) 0 else maxOf(0L, i + Lic.DAYS - Lic.today()) }
     fun gen() {
         val dev = id.trim().uppercase()
-        if (!Regex("[A-F0-9]{12}").matches(dev)) { key = ""; good = false; msg = "Device ID must be 12 letters/numbers (0-9, A-F). Copy it from Unoxidized X."; return }
+        if (CtlState.revoked(dev)) { key = ""; good = false; msg = "This device was revoked by the owner."; return }
+        if (!Regex("[A-F0-9]{12}").matches(dev)) { key = ""; good = false; msg = "Device ID must be 12 letters/numbers (0-9, A-F). Copy it from NACHT X."; return }
         val issued = sp.getLong("i_$dev", -1L); val t = Lic.today(); val d = if (issued >= 0 && issued + Lic.DAYS > t) issued else t
         if (d == t) sp.edit().putLong("i_$dev", t).putStringSet("ids", (sp.getStringSet("ids", emptySet()) ?: emptySet()) + dev).apply()
         key = Lic.make(dev, d); day = d; good = true; tick++
         msg = if (d == t) "New key created. It works for 7 days." else "This ID already has an active key. A new one unlocks in ${d + Lic.DAYS - t} day(s)."
         toast(if (d == t) "Key generated" else "Active key shown")
     }
-    fun send(k: String) { try { c.startActivity(Intent().setClassName("com.unoxidized.x", "com.unoxidized.x.MainActivity").putExtra("ux_key", k).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)) } catch (e: Exception) { toast("Install Unoxidized X first") } }
-    fun share(k: String) { c.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "My Unoxidized X key: $k"), "Share key").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    fun send(k: String) { try { c.startActivity(Intent().setClassName("com.unoxidized.x", "com.unoxidized.x.MainActivity").putExtra("ux_key", k).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)) } catch (e: Exception) { toast("Install NACHT X first") } }
+    fun share(k: String) { c.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "My NACHT X key: $k"), "Share key").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     BackHandler(enabled = tab != 0) { tab = 0 }
     Column(Modifier.fillMaxSize().systemBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(16.dp, 10.dp), verticalAlignment = Alignment.CenterVertically) {
             LogoImg(painterResource(R.drawable.logo), 42); Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) { Text("UNOXIDIZED GENERATOR", fontWeight = FontWeight.Black, fontSize = 15.sp, letterSpacing = 2.sp); Text("WEEKLY ACCESS KEYS", color = Dim, fontSize = 9.sp, letterSpacing = 2.sp) }
+            Column(Modifier.weight(1f)) { Text("NACHT X GENERATOR", fontWeight = FontWeight.Black, fontSize = 15.sp, letterSpacing = 2.sp); Text("WEEKLY ACCESS KEYS", color = Dim, fontSize = 9.sp, letterSpacing = 2.sp) }
             val l = left(me); Chip(if (l > 0) "ACTIVE" else "NO KEY", if (l > 0) Ok else Dim)
         }
         Box(Modifier.weight(1f).swipeTabs({ if (tab > 0) { tab-- } }, { if (tab < 2) { tab++ } })) {
@@ -68,6 +69,7 @@ class GenActivity : ComponentActivity() {
                 when (t) {
                     0 -> {
                         val l = left(me)
+                        AnnounceCard(); UpdateCard("6.0"); LinkedMain(c)
                         Glass { Row(verticalAlignment = Alignment.CenterVertically) { Gauge(l / 7f, l.toInt(), "DAYS LEFT", if (l > 2) Ok else if (l > 0) Warn else Dim, 140); Spacer(Modifier.width(14.dp))
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) { Cap("This phone"); Text(me, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                 Text(if (l > 0) "Your key is active." else "No active key. Generate one below.", color = Dim, fontSize = 12.sp) } } }
@@ -79,7 +81,7 @@ class GenActivity : ComponentActivity() {
                         if (msg.isNotEmpty()) Text(msg, color = if (good) Ok else Bad, fontSize = 13.sp)
                         if (key.isNotEmpty()) Glass { Cap("Your key"); SelectionContainer { Text(key, fontFamily = FontFamily.Monospace, fontSize = 17.sp, fontWeight = FontWeight.Bold) }
                             Text("Valid until ${Lic.until(day)}", color = Dim, fontSize = 12.sp)
-                            Btn("COPY KEY") { cb.setText(AnnotatedString(key)); toast("Key copied") }; Btn("SEND TO UNOXIDIZED X", false) { send(key) }; Btn("SHARE", false) { share(key) } }
+                            Btn("COPY KEY") { cb.setText(AnnotatedString(key)); toast("Key copied") }; Btn("SEND TO NACHT X", false) { send(key) }; Btn("SHARE", false) { share(key) } }
                     }
                     1 -> { H("My keys", "Every device ID you made a key for.")
                         if (ids.isEmpty()) Glass { Text("Nothing here yet", fontWeight = FontWeight.Bold); Text("Generate your first key on the Generate tab.", color = Dim, fontSize = 12.sp); Btn("GO TO GENERATE") { tab = 0 } }
@@ -91,11 +93,12 @@ class GenActivity : ComponentActivity() {
                                 else Btn("MAKE NEW KEY", false) { id = d; tab = 0; gen() } } } }
                     else -> { var rm by remember { mutableStateOf(UiFlags.reduceMotion) }
                         H("Help", "How the weekly keys work.")
-                        Glass { listOf("1" to "Open Unoxidized X and copy the Device ID on its login screen.", "2" to "Paste it here (or use This phone) and tap Generate key.", "3" to "Tap Send to Unoxidized X. It logs you in automatically.", "4" to "After 7 days the key expires. Come back and generate a new one.").forEach { (n, tx) ->
+                        Glass { listOf("1" to "Open NACHT X and copy the Device ID on its login screen.", "2" to "Paste it here (or use This phone) and tap Generate key.", "3" to "Tap Send to NACHT X. It logs you in automatically.", "4" to "After 7 days the key expires. Come back and generate a new one.").forEach { (n, tx) ->
                             Row(verticalAlignment = Alignment.Top) { Text(n, Modifier.width(26.dp), fontWeight = FontWeight.Black, color = Dim); Text(tx, color = Color(0xFFCCCCCC), fontSize = 13.sp) } } }
                         Glass { Cap("Settings"); Row(verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("Reduce motion", fontWeight = FontWeight.Bold); Text("Calmer background, shorter transitions", color = Dim, fontSize = 12.sp) }
-                            Switch(rm, { rm = it; UiFlags.reduceMotion = it; sp.edit().putBoolean("rm", it).apply() }, colors = SwitchDefaults.colors(checkedThumbColor = Color.Black, checkedTrackColor = Color.White, uncheckedThumbColor = Color.Gray, uncheckedTrackColor = Color(0xFF222222))) } }
-                        Glass { Cap("About"); Text("Unoxidized Generator", fontWeight = FontWeight.Bold); Text("Made by @UnoxidizedX on Telegram. One key per device ID per week.", color = Dim, fontSize = 12.sp) } }
+                            Switch(rm, { rm = it; UiFlags.reduceMotion = it; sp.edit().putBoolean("rm", it).apply() }, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Glow, uncheckedThumbColor = Color.Gray, uncheckedTrackColor = Color(0xFF222222))) } }
+                        ShowcaseCard("6.0")
+                        Glass { Cap("About"); Text("NACHT X Generator", fontWeight = FontWeight.Bold); Text("Made by @UnoxidizedX on Telegram. One key per device ID per week.", color = Dim, fontSize = 12.sp) } }
                 }
                 Spacer(Modifier.height(8.dp)) } } }
         }

@@ -1,4 +1,4 @@
-name: Build APKs
+name: Build 4 Apps
 on: [workflow_dispatch, push]
 jobs:
   build:
@@ -12,9 +12,10 @@ jobs:
       - run: gradle assembleDebug
       - run: |
           mkdir -p out/public out/private
-          cp app/build/outputs/apk/debug/app-debug.apk "out/public/Unoxidized X.apk"
-          cp generator/build/outputs/apk/debug/generator-debug.apk "out/public/Unoxidized Generator.apk"
-          cp owner/build/outputs/apk/debug/owner-debug.apk "out/private/Unoxidized Owner.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "out/public/NACHT X.apk"
+          cp generator/build/outputs/apk/debug/generator-debug.apk "out/public/NACHT X Generator.apk"
+          cp info/build/outputs/apk/debug/info-debug.apk "out/public/NACHT X Information.apk"
+          cp owner/build/outputs/apk/debug/owner-debug.apk "out/private/NACHT X Owner.apk"
       - uses: actions/upload-artifact@v4
         with: {name: UnoxidizedX, path: out/public}
       - uses: actions/upload-artifact@v4

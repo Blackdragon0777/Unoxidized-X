@@ -45,8 +45,8 @@ val PROFS = listOf(
     Prof("bal", "BALANCED", .9f, 45, "Performance", "Near-native sharpness with a 45 FPS cap. Cooler, steadier sessions."),
     Prof("perf", "PERFORMANCE", .8f, 60, "Performance", "Slightly reduced resolution and a 60 FPS cap for smoother play."),
     Prof("max", "MAX PERFORMANCE", .6f, 120, "Performance", "Lowest resolution and the highest FPS cap your screen supports. Runs warmer."))
-val GUIDE = listOf("Install both apps" to "Unoxidized X and Unoxidized Generator come in the same zip.",
-    "Get your key" to "Open Unoxidized Generator, tap Generate key, then 'Send to Unoxidized X'. Keys last 7 days.",
+val GUIDE = listOf("Install both apps" to "NACHT X and NACHT X Generator come in the same zip.",
+    "Get your key" to "Open NACHT X Generator, tap Generate key, then 'Send to NACHT X'. Keys last 7 days.",
     "Install and start Shizuku" to "Get Shizuku from the Play Store. Turn on Wireless debugging, pair in Shizuku, then Start.",
     "Authorize the app" to "Tap Authorize access and press Allow in the Shizuku popup.",
     "Pick a profile" to "Game tab > choose a profile. Every step shows a real check.",
@@ -98,7 +98,7 @@ class AS(val c: Context, val sp: SharedPreferences) {
     var scale by mutableStateOf(sp.getFloat("sc", 0.8f)); var fps by mutableStateOf(clampFps(sp.getInt("fps", 60), maxHz))
     var mode by mutableStateOf(sp.getString("md", "Performance") ?: "Performance"); var hz by mutableStateOf(sp.getInt("hz", maxHz))
     var prof by mutableStateOf(sp.getString("prof", "") ?: ""); var snap by mutableStateOf(Sys.snap(c)); var log by mutableStateOf("Ready.")
-    var tick by mutableStateOf(0); val mine = mutableStateListOf<MyProf>().also { it.addAll(ProfStore.load(sp)) }; var editing by mutableStateOf<MyProf?>(null)
+    var keyLeft by mutableStateOf(99999L); var keyRole by mutableStateOf("F"); var tick by mutableStateOf(0); val mine = mutableStateListOf<MyProf>().also { it.addAll(ProfStore.load(sp)) }; var editing by mutableStateOf<MyProf?>(null)
     fun saveMine() { ProfStore.save(sp, mine) }
     fun applyMine(p: MyProf) { scale = p.sc; fps = clampFps(p.fps, maxHz); mode = p.mode; prof = "my:" + p.id; apply("Profile " + p.name) }
     val launchCmd: String get() = "monkey -p $pkg -c android.intent.category.LAUNCHER 1"
@@ -111,7 +111,7 @@ class AS(val c: Context, val sp: SharedPreferences) {
         save(); val s = Sys.snap(c); snap = s; val tx = s.tempC?.let { " · " + it.toInt() + "°C" } ?: ""
         val st = mutableListOf(Step("Checking device status", "RAM ${s.ramPct}% · battery " + (if (s.batt < 0) "n/a" else "${s.batt}%") + tx) { null },
             Step("Checking Shizuku", "Connected") { if (Sh.running()) null else "Shizuku is not running. Start it in the Shizuku app." },
-            Step("Checking permissions", "Authorized") { if (Sh.granted()) null else "Permission missing. Authorize Unoxidized X in Shizuku." },
+            Step("Checking permissions", "Authorized") { if (Sh.granted()) null else "Permission missing. Authorize NACHT X in Shizuku." },
             Step("Cleaning background apps", "Done") { Sh.run("am kill-all"); null })
         st.addAll(applySteps(pkg, scale, fps, mode))
         if (launch) st.add(Step("Preparing CODM", "Launched") { Sh.run(launchCmd); null })
@@ -131,35 +131,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(b); incoming = intent?.getStringExtra("ux_key")
         val sp = getSharedPreferences("ux", 0); UiFlags.reduceMotion = sp.getBoolean("rm", false); UiFlags.haptics = sp.getBoolean("hp", true)
         setContent {
-            MaterialTheme(darkColorScheme(primary = Color.White, onPrimary = Color.Black, background = Color.Black, surface = Color(0xFF0B0B0B), onSurface = Color.White, onBackground = Color.White, secondaryContainer = Color(0xFF242424), onSecondaryContainer = Color.White)) {
-                Surface(Modifier.fillMaxSize(), color = Color.Black) { ToastRoot { TechBackground { Boot(this@MainActivity, incoming) { incoming = null } } } }
+            MaterialTheme(darkColorScheme(primary = Glow, onPrimary = Color.White, background = Bg0, surface = Bg1, onSurface = Txt, onBackground = Txt, secondaryContainer = Color(0xFF242424), onSecondaryContainer = Txt)) {
+                Surface(Modifier.fillMaxSize(), color = Bg0) { ToastRoot { TechBackground(painterResource(R.drawable.bg_char)) { Boot(this@MainActivity, incoming) { incoming = null } } } }
             }
         }
     }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); intent.getStringExtra("ux_key")?.let { incoming = it } }
 }
 
-@Composable fun Pick(opts: List<String>, sel: String, set: (String) -> Unit) = Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(8.dp)) {
-    opts.forEach { o ->
-        val on = o == sel; val bg by animateColorAsState(if (on) Color.White else Color(0xFF141414), label = "pk")
-        Box(Modifier.weight(1f).press { set(o) }.height(48.dp).clip(RoundedCornerShape(14.dp)).background(bg).border(1.dp, if (on) Color.White else Ln, RoundedCornerShape(14.dp)), Alignment.Center) {
-            Text(o, color = if (on) Color.Black else Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
-    }
-}
-@Composable fun Tile(m: Modifier, ic: String, name: String, desc: String, on: Boolean = false, click: () -> Unit) {
-    val sh = RoundedCornerShape(18.dp)
-    Column(m.press(click).height(100.dp).clip(sh).background(if (on) Brush.linearGradient(listOf(Color.White, Color(0xFFC9C9C9))) else Brush.linearGradient(listOf(Color(0xFF1C1C1C), Color(0xFF0E0E0E))))
-        .border(1.dp, if (on) Color.White else Ln, sh).padding(14.dp), Arrangement.SpaceBetween) {
-        Text(ic, fontSize = 24.sp)
-        Column { Text(name, color = if (on) Color.Black else Color.White, fontWeight = FontWeight.Black, fontSize = 14.sp); Text(desc, color = if (on) Color(0xFF444444) else Dim, fontSize = 11.sp) }
-    }
-}
-@Composable fun Stat(m: Modifier, k: String, v: String) = Column(m.clip(RoundedCornerShape(14.dp)).background(Color(0xFF111111)).border(1.dp, Ln, RoundedCornerShape(14.dp)).padding(12.dp)) { Cap(k); Text(v, fontWeight = FontWeight.Black, fontSize = if (v.length > 10) 12.sp else 16.sp, maxLines = 1) }
-@Composable fun StatRow(vararg p: Pair<String, String>) = Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(10.dp)) { p.forEach { Stat(Modifier.weight(1f), it.first, it.second) } }
-@Composable fun Toggle(t: String, s: String, on: Boolean, set: (Boolean) -> Unit) = Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-    Column(Modifier.weight(1f)) { Text(t, fontWeight = FontWeight.Bold); Text(s, color = Dim, fontSize = 12.sp) }
-    Switch(on, set, colors = SwitchDefaults.colors(checkedThumbColor = Color.Black, checkedTrackColor = Color.White, uncheckedThumbColor = Color.Gray, uncheckedTrackColor = Color(0xFF222222)))
-}
 @Composable fun Metric(title: String, value: String, data: List<Float>, max: Float, col: Color, na: Boolean = false) = Glass {
     Row(verticalAlignment = Alignment.CenterVertically) { Cap(title); Spacer(Modifier.weight(1f)); Text(value, fontWeight = FontWeight.Black, fontSize = 20.sp) }
     if (data.size > 1) Spark(data, max, col) else if (na) Text("Not available on this device.", color = Dim, fontSize = 12.sp) else Skel(Modifier.fillMaxWidth().height(40.dp))
@@ -180,8 +159,8 @@ class MainActivity : ComponentActivity() {
     LaunchedEffect(incoming) { if (incoming != null) { t = incoming; go(incoming); consume() } }
     Column(Modifier.fillMaxSize().systemBarsPadding().verticalScroll(rememberScrollState()).padding(22.dp), Arrangement.Center, Alignment.CenterHorizontally) {
         LogoImg(painterResource(R.drawable.logo), 170); Spacer(Modifier.height(10.dp))
-        Text("UNOXIDIZED X", fontSize = 28.sp, fontWeight = FontWeight.Black, letterSpacing = 5.sp)
-        Text("CODM PERFORMANCE CENTER", color = Dim, fontSize = 12.sp, letterSpacing = 3.sp)
+        Text("NACHT X", fontSize = 28.sp, fontWeight = FontWeight.Black, letterSpacing = 5.sp)
+        Text("SHADOW SYSTEM", color = Dim, fontSize = 12.sp, letterSpacing = 3.sp)
         Spacer(Modifier.height(22.dp))
         Glass {
             Cap("Your device ID")
@@ -193,7 +172,7 @@ class MainActivity : ComponentActivity() {
             Btn("LOG IN") { go(t) }
         }
         Spacer(Modifier.height(12.dp))
-        Btn("OPEN UNOXIDIZED GENERATOR", false) { Env.openApp(c, "com.unoxidized.gen") }
+        Btn("OPEN NACHT X GENERATOR", false) { Env.openApp(c, "com.unoxidized.gen") }
         Text("Generate your free weekly key there, then send it here.", color = Dim, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
         Watermark()
     }
@@ -207,7 +186,7 @@ class MainActivity : ComponentActivity() {
 @Composable fun StepCard(n: Int, title: String, body: String, done: Boolean, current: Boolean, content: @Composable ColumnScope.() -> Unit) = Glass {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(36.dp).clip(CircleShape).background(if (done) Brush.horizontalGradient(listOf(Ok, Ok)) else if (current) WhiteGrad else Brush.horizontalGradient(listOf(Color(0xFF222222), Color(0xFF222222)))), Alignment.Center) {
-            Text(if (done) "✓" else "$n", color = if (done || current) Color.Black else Dim, fontWeight = FontWeight.Black) }
+            Text(if (done) "✓" else "$n", color = if (done || current) Color.White else Dim, fontWeight = FontWeight.Black) }
         Spacer(Modifier.width(12.dp)); Column { Text(title, fontWeight = FontWeight.Bold); Text(body, color = Dim, fontSize = 12.sp) }
     }
     if (current) content()
@@ -217,15 +196,15 @@ class MainActivity : ComponentActivity() {
     Column(Modifier.fillMaxSize().systemBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp), Arrangement.spacedBy(14.dp), Alignment.CenterHorizontally) {
         Spacer(Modifier.height(8.dp)); LogoImg(painterResource(R.drawable.logo), 110)
         Text("AUTHORIZE ACCESS", fontSize = 24.sp, fontWeight = FontWeight.Black, letterSpacing = 3.sp)
-        Text("Unoxidized X changes game settings through Shizuku. Complete these 3 steps to unlock every feature.", color = Dim, fontSize = 13.sp)
+        Text("NACHT X changes game settings through Shizuku. Complete these 3 steps to unlock every feature.", color = Dim, fontSize = 13.sp)
         Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(Color(0xFF222222))) { Box(Modifier.fillMaxWidth(done / 3f).fillMaxHeight().background(WhiteGrad)) }
         StepCard(1, "Install Shizuku", "The free app that grants access.", inst, cur == 0) { Btn("INSTALL SHIZUKU") { Env.installShizuku(c) } }
         StepCard(2, "Pair and start Shizuku", "Wireless debugging, then Start.", run, cur == 1) {
             Text("1. Turn on Wireless debugging.\n2. In Shizuku tap Pairing and enter the code.\n3. Tap 'Start via Wireless debugging'.", fontSize = 13.sp, color = Color(0xFFCCCCCC))
             Btn("OPEN DEVELOPER OPTIONS", false) { Env.openDev(c) }; Btn("OPEN SHIZUKU") { Env.openApp(c, Env.SZ) } }
-        StepCard(3, "Authorize Unoxidized X", "Allow this app inside Shizuku.", ok, cur == 2) {
+        StepCard(3, "Authorize NACHT X", "Allow this app inside Shizuku.", ok, cur == 2) {
             Btn("AUTHORIZE ACCESS") { Sh.ask() }
-            Text("No popup? Open Shizuku > Authorized apps and switch Unoxidized X on.", fontSize = 12.sp, color = Dim) }
+            Text("No popup? Open Shizuku > Authorized apps and switch NACHT X on.", fontSize = 12.sp, color = Dim) }
         Text("This screen unlocks automatically when all steps are done. If Shizuku stops, you come back here.", color = Dim, fontSize = 12.sp)
         Watermark()
     }
@@ -237,14 +216,14 @@ class MainActivity : ComponentActivity() {
     Dialog({ if (t.done) t.open = false }, DialogProperties(dismissOnBackPress = t.done, dismissOnClickOutside = false, usePlatformDefaultWidth = false)) {
         Glass(Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { Cap(t.title); Text(if (!t.done) "WORKING..." else if (t.ok) "COMPLETE" else "NEEDS ATTENTION", fontWeight = FontWeight.Black, fontSize = 20.sp, letterSpacing = 2.sp, color = if (!t.done) Color.White else if (t.ok) Ok else Bad) }
-                if (!t.done) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp) }
+                Column(Modifier.weight(1f)) { Cap(t.title); Text(if (!t.done) "WORKING..." else if (t.ok) "COMPLETE" else "NEEDS ATTENTION", fontWeight = FontWeight.Black, fontSize = 20.sp, letterSpacing = 2.sp, color = if (!t.done) Glow else if (t.ok) Ok else Bad) }
+                if (!t.done) CircularProgressIndicator(color = Glow, modifier = Modifier.size(24.dp), strokeWidth = 2.dp) }
             val d = t.st.count { it == 2 }; val n = maxOf(t.st.size, 1)
             Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(Color(0xFF222222))) { Box(Modifier.fillMaxWidth(d / n.toFloat()).fillMaxHeight().background(if (t.ok) WhiteGrad else Brush.horizontalGradient(listOf(Bad, Bad)))) }
             t.labels.forEachIndexed { i, l -> val s = t.st.getOrElse(i) { 0 }
                 Row(verticalAlignment = Alignment.Top) {
-                    Text(when (s) { 1 -> "◐"; 2 -> "✓"; 3 -> "✕"; else -> "○" }, Modifier.width(28.dp), color = when (s) { 2 -> Ok; 3 -> Bad; 1 -> Color.White; else -> Dim }, fontWeight = FontWeight.Black)
-                    Column { Text(l, color = if (s == 0) Dim else Color.White, fontSize = 14.sp); if (s == 2) Text(t.oks.getOrElse(i) { "" }, color = Dim, fontSize = 11.sp) } } }
+                    Text(when (s) { 1 -> "◐"; 2 -> "✓"; 3 -> "✕"; else -> "○" }, Modifier.width(28.dp), color = when (s) { 2 -> Ok; 3 -> Bad; 1 -> Glow; else -> Dim }, fontWeight = FontWeight.Black)
+                    Column { Text(l, color = if (s == 0) Dim else Glow, fontSize = 14.sp); if (s == 2) Text(t.oks.getOrElse(i) { "" }, color = Dim, fontSize = 11.sp) } } }
             if (t.done) {
                 if (!t.ok) Text(t.note, color = Bad, fontSize = 13.sp)
                 if (t.ok) { Btn("LAUNCH CODM") { t.open = false; a.run(a.launchCmd) }; Btn("RESTART CODM", false) { t.open = false; a.run("am force-stop ${a.pkg}; ${a.launchCmd}") } }
@@ -256,6 +235,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable fun HomePage(a: AS, go: (Int) -> Unit) {
     val s = a.snap; val ready = Sh.granted(); val sc = Sys.score(s, ready); val col = if (sc >= 80) Ok else if (sc >= 60) Warn else Bad
+    AnnounceCard(); UpdateCard("6.0"); KeyReminder(a); RankCard(a)
     Glass { Row(verticalAlignment = Alignment.CenterVertically) {
         Gauge(sc / 100f, sc, "PERFORMANCE SCORE", col, 150); Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -290,7 +270,7 @@ class MainActivity : ComponentActivity() {
     Cap("Profiles")
     PROFS.forEach { p -> val on = a.prof == p.key; val sh = RoundedCornerShape(20.dp)
         Column(Modifier.fillMaxWidth().press { a.scale = p.sc; a.fps = clampFps(p.fps, a.maxHz); a.mode = p.mode; a.prof = p.key; a.apply("Profile ${p.name.lowercase()}") }.clip(sh)
-            .background(if (on) Brush.linearGradient(listOf(Color(0xFF2E2E2E), Color(0xFF151515))) else Brush.linearGradient(listOf(Color(0xFF161616), Color(0xFF0C0C0C)))).border(if (on) 1.5.dp else 1.dp, if (on) Color.White else Ln, sh).padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            .background(if (on) Brush.linearGradient(listOf(Color(0xFF2E2E2E), Color(0xFF151515))) else Brush.linearGradient(listOf(Color(0xFF161616), Color(0xFF0C0C0C)))).border(if (on) 1.5.dp else 1.dp, if (on) Glow else Ln, sh).padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) { Text(p.name, Modifier.weight(1f), fontWeight = FontWeight.Black, letterSpacing = 1.sp); if (on) Chip("SELECTED", Ok) }
             Text(p.desc, color = Dim, fontSize = 12.sp); Text("${ds(p.sc)}x · up to ${clampFps(p.fps, a.maxHz)} FPS · ${p.mode}", color = Color(0xFFBBBBBB), fontSize = 11.sp)
         } }
@@ -298,7 +278,7 @@ class MainActivity : ComponentActivity() {
     MyProfilesSection(a)
     Cap("Fine tune")
     Glass { Cap("Render scale"); Text("${ds(a.scale)}x", fontSize = 40.sp, fontWeight = FontWeight.Black)
-        Slider(a.scale, { a.scale = (Math.round(it * 20) / 20f); a.prof = "" }, valueRange = 0.3f..1f, colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White, inactiveTrackColor = Color(0xFF2A2A2A)))
+        Slider(a.scale, { a.scale = (Math.round(it * 20) / 20f); a.prof = "" }, valueRange = 0.3f..1f, colors = SliderDefaults.colors(thumbColor = Glow, activeTrackColor = Glow, inactiveTrackColor = Color(0xFF2A2A2A)))
         Cap("FPS target"); Pick(fpsOpts(a.maxHz).map { it.toString() }, a.fps.toString()) { a.fps = it.toInt(); a.prof = "" }
         if (a.maxHz <= 60) Text("Your screen is ${a.maxHz} Hz, so higher targets are hidden.", color = Dim, fontSize = 12.sp)
         Cap("Mode"); Pick(listOf("Performance", "Battery"), a.mode) { a.mode = it; a.prof = "" }
@@ -318,7 +298,7 @@ class MainActivity : ComponentActivity() {
     StatRow("SESSION" to "%02d:%02d".format(sec / 60, sec % 60), "PEAK TEMP" to (m.peak?.let { "%.1f°C".format(java.util.Locale.US, it) } ?: "Not available"))
     Glass { Row(verticalAlignment = Alignment.CenterVertically) { Cap("Thermal"); Spacer(Modifier.weight(1f)); Chip(th, if (th == "NORMAL") Ok else if (th == "WARM") Warn else if (th == "HOT") Bad else Dim) }
         if (th == "HOT") Text("Your phone is hot. Consider the Battery Saver profile and a short break.", color = Bad, fontSize = 12.sp) }
-    Metric("CPU", m.cpuNow?.let { "$it%" } ?: "--", m.cpu, 100f, Color.White, m.cpuTries >= 4 && m.cpu.isEmpty())
+    Metric("CPU", m.cpuNow?.let { "$it%" } ?: "--", m.cpu, 100f, Glow, m.cpuTries >= 4 && m.cpu.isEmpty())
     Metric("RAM", "${s.ramPct}%", m.ram, 100f, Color(0xFF9EC5FF))
     Metric("BATTERY TEMP", temp?.let { "%.1f°C".format(java.util.Locale.US, it) } ?: "Not available", m.tmp, 60f, Warn, temp == null)
     StatRow("BATTERY" to (if (s.batt < 0) "Not available" else "${s.batt}%" + if (s.charging) " ⚡" else ""), "STORAGE" to "${s.storPct}% of ${s.storGb} GB")
@@ -347,7 +327,7 @@ class MainActivity : ComponentActivity() {
     Glass { OutlinedTextField(a.pkg, { a.pkg = it.trim() }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = fieldColors(), singleLine = true)
         Btn("CHECK CURRENT CONFIG", false) { a.run("device_config get game_overlay ${a.pkg}; cmd game mode ${a.pkg}") } }
     Cap("Utility")
-    Glass { Btn("COPY DIAGNOSTICS", false) { cb.setText(AnnotatedString("Unoxidized X diagnostics\nDevice: ${Env.device()}\nAndroid: ${android.os.Build.VERSION.RELEASE}\nChip: ${Env.soc()}\nRAM: ${s.ramMb} MB (${s.ramPct}% used)\nScreen: ${a.hzs.joinToString("/")} Hz\nShizuku running: $run, authorized: $gr, access: ${Env.access()}\nProfile: ${ds(a.scale)}x, ${a.fps} FPS, ${a.mode}\nPackage: ${a.pkg}")); toast("Diagnostics copied") }
+    Glass { Btn("COPY DIAGNOSTICS", false) { cb.setText(AnnotatedString("NACHT X diagnostics\nDevice: ${Env.device()}\nAndroid: ${android.os.Build.VERSION.RELEASE}\nChip: ${Env.soc()}\nRAM: ${s.ramMb} MB (${s.ramPct}% used)\nScreen: ${a.hzs.joinToString("/")} Hz\nShizuku running: $run, authorized: $gr, access: ${Env.access()}\nProfile: ${ds(a.scale)}x, ${a.fps} FPS, ${a.mode}\nPackage: ${a.pkg}")); toast("Diagnostics copied") }
         Btn("RESTORE DEFAULTS", false) { runTask(a.tk, "Restore defaults", listOf(
             Step("Removing the CODM profile", "Removed") { val r = Sh.run("cmd game reset ${a.pkg}; device_config delete game_overlay ${a.pkg}"); if (r.startsWith("Error")) r else null },
             Step("Restoring animation speed", "1.0x") { Sh.run("settings put global window_animation_scale 1.0; settings put global transition_animation_scale 1.0; settings put global animator_duration_scale 1.0"); null },
@@ -393,9 +373,9 @@ class MainActivity : ComponentActivity() {
         if (open == i) Text(b, color = Color(0xFFCCCCCC), fontSize = 13.sp) } }
     Cap("Troubleshooting")
     Glass { listOf("Shizuku keeps stopping" to "Restart it after every reboot: Shizuku > Start via Wireless debugging.",
-        "Authorize popup never appears" to "Open Shizuku > Authorized apps and switch Unoxidized X on.",
+        "Authorize popup never appears" to "Open Shizuku > Authorized apps and switch NACHT X on.",
         "Profile not kept by Android" to "Some phones or CODM versions reject Game Mode profiles. The popup shows the real reason.",
-        "Key expired" to "Open Unoxidized Generator and make a new weekly key.").forEach { (q, ans) -> Text(q, fontWeight = FontWeight.Bold); Text(ans, color = Dim, fontSize = 12.sp) } }
+        "Key expired" to "Open NACHT X Generator and make a new weekly key.").forEach { (q, ans) -> Text(q, fontWeight = FontWeight.Bold); Text(ans, color = Dim, fontSize = 12.sp) } }
 }
 
 @Composable fun SettingsPage(a: AS) {
@@ -406,7 +386,7 @@ class MainActivity : ComponentActivity() {
         Toggle("Haptic feedback", "Vibrate lightly on button taps", hp) { hp = it; UiFlags.haptics = it; a.sp.edit().putBoolean("hp", it).apply() } }
     TrackingSettings(a)
     Cap("Transparency")
-    Glass { Text("What Unoxidized X does", fontWeight = FontWeight.Bold)
+    Glass { Text("What NACHT X does", fontWeight = FontWeight.Bold)
         Text("• Writes an Android Game Mode profile for CODM (resolution scale and FPS cap).\n• Closes background apps and changes system animation or refresh settings only when you ask.\n• Reads RAM, battery, temperature and storage from Android.", color = Color(0xFFCCCCCC), fontSize = 12.sp)
         Text("What it never does", fontWeight = FontWeight.Bold)
         Text("• Edit CODM files, bypass anti-cheat, or give gameplay advantages.\n• Invent FPS, temperature or success results.\n• Promise a specific FPS gain.", color = Color(0xFFCCCCCC), fontSize = 12.sp) }
@@ -420,7 +400,9 @@ class MainActivity : ComponentActivity() {
         Cap("Key expires"); Text(r.untilText + (if (r.left > 9000) "" else "  (${r.left} days left)"))
         Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(Color(0xFF222222))) { Box(Modifier.fillMaxWidth(r.frac).fillMaxHeight().background(WhiteGrad)) }
         Cap("Made by"); Text("@UnoxidizedX on Telegram", fontWeight = FontWeight.Bold) }
-    Btn("OPEN UNOXIDIZED GENERATOR", false) { Env.openApp(a.c, "com.unoxidized.gen") }
+    LinkedGen(a.c); Cap("Showcase"); ShowcaseCard("6.0")
+    Btn("OPEN NACHT X GENERATOR", false) { Env.openApp(a.c, "com.unoxidized.gen") }
+    Btn("OPEN NACHT X INFORMATION", false) { Env.openApp(a.c, "com.unoxidized.info") }
     Btn("LOG OUT", false, onClick = logout)
 }
 
@@ -435,6 +417,7 @@ class MainActivity : ComponentActivity() {
         val cpu = withContext(Dispatchers.IO) { Sys.cpu() }; m.cpuTries++; if (cpu != null) { m.cpuNow = cpu; m.add(m.cpu, cpu.toFloat()) }
         delay(1500) } }
     BackHandler(enabled = page != 0) { page = 0 }
+    LaunchedEffect(key) { val r = Lic.check(Lic.deviceId(c), key); a.keyLeft = r.left; a.keyRole = r.role }
     val toast = LocalToast.current
     val refresh: suspend (Int) -> Unit = { p -> a.snap = Sys.snap(c); a.tick++; if (p == 2) { a.mon.cpu.clear(); a.mon.ram.clear(); a.mon.tmp.clear(); a.mon.cpuTries = 0 }; delay(500); toast("Updated") }
     val notif = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -443,14 +426,14 @@ class MainActivity : ComponentActivity() {
     TaskDialog(a); ProfEditor(a)
     ModalNavigationDrawer({ ModalDrawerSheet(drawerContainerColor = Color(0xFF080808)) {
         Row(Modifier.padding(24.dp), verticalAlignment = Alignment.CenterVertically) { LogoImg(painterResource(R.drawable.logo), 52); Spacer(Modifier.width(12.dp))
-            Column { Text("UNOXIDIZED X", fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 3.sp); Text("CODM PERFORMANCE CENTER", color = Dim, fontSize = 9.sp, letterSpacing = 1.5.sp) } }
+            Column { Text("NACHT X", fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 3.sp); Text("SHADOW SYSTEM", color = Dim, fontSize = 9.sp, letterSpacing = 1.5.sp) } }
         pages.forEachIndexed { i, (n, ic) -> NavigationDrawerItem({ Text("$ic   $n", fontWeight = FontWeight.Bold) }, i == page, { page = i; scope.launch { drawer.close() } }, Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
-            colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = Color(0xFF242424), unselectedContainerColor = Color.Transparent, selectedTextColor = Color.White, unselectedTextColor = Color(0xFFBBBBBB))) }
+            colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = Color(0xFF242424), unselectedContainerColor = Color.Transparent, selectedTextColor = Glow, unselectedTextColor = Color(0xFFBBBBBB))) }
     } }, drawerState = drawer) {
         Column(Modifier.fillMaxSize().systemBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(16.dp, 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 LogoImg(painterResource(R.drawable.logo), 40); Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) { Text("UNOXIDIZED X", fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = 3.sp); Text("CODM PERFORMANCE CENTER", color = Dim, fontSize = 9.sp, letterSpacing = 2.sp) }
+                Column(Modifier.weight(1f)) { Text("NACHT X", fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = 3.sp); Text("SHADOW SYSTEM", color = Dim, fontSize = 9.sp, letterSpacing = 2.sp) }
                 val ok = Sh.granted(); Chip(if (ok) "CONNECTED" else "NO ACCESS", if (ok) Ok else Bad)
             }
             Box(Modifier.weight(1f).swipeTabs({ if (page in 1..3) { page-- } else if (page >= 4) { page = 0 } }, { if (page < 3) { page++ } })) {

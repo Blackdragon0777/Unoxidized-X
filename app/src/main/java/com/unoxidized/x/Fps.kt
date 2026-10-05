@@ -107,7 +107,7 @@ class SessionService : Service() {
         val ch = "ux_session"
         if (Build.VERSION.SDK_INT >= 26) (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(NotificationChannel(ch, "Session tracking", NotificationManager.IMPORTANCE_LOW))
         val b = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, ch) else Notification.Builder(this)
-        val n = b.setContentTitle("Unoxidized X").setContentText("Watching for CODM sessions").setSmallIcon(android.R.drawable.ic_dialog_info).setOngoing(true).build()
+        val n = b.setContentTitle("NACHT X").setContentText("Watching for CODM sessions").setSmallIcon(android.R.drawable.ic_dialog_info).setOngoing(true).build()
         if (Build.VERSION.SDK_INT >= 34) startForeground(7, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE) else startForeground(7, n)
         if (!Session.watching) { Session.watching = true; go = true; thread { loop() } }
         return START_STICKY

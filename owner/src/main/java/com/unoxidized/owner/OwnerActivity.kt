@@ -79,8 +79,8 @@ class OwnerActivity : ComponentActivity() {
     override fun onCreate(b: Bundle?) {
         super.onCreate(b); window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         val sp = getSharedPreferences("own", 0); UiFlags.reduceMotion = sp.getBoolean("rm", false); UiFlags.haptics = sp.getBoolean("hp", true)
-        setContent { MaterialTheme(darkColorScheme(primary = Color.White, onPrimary = Color.Black, background = Color.Black, surface = Color(0xFF0B0B0B), onSurface = Color.White, onBackground = Color.White, secondaryContainer = Color(0xFF242424), onSecondaryContainer = Color.White)) {
-            Surface(Modifier.fillMaxSize(), color = Color.Black) { ToastRoot { TechBackground { OwnerBoot(this@OwnerActivity) } } } } }
+        setContent { MaterialTheme(darkColorScheme(primary = Glow, onPrimary = Color.White, background = Bg0, surface = Bg1, onSurface = Txt, onBackground = Txt, secondaryContainer = Color(0xFF242424), onSecondaryContainer = Txt)) {
+            Surface(Modifier.fillMaxSize(), color = Bg0) { ToastRoot { TechBackground(painterResource(R.drawable.bg_char)) { OwnerBoot(this@OwnerActivity) } } } } }
     }
     override fun onStop() { super.onStop(); bgAt = System.currentTimeMillis() }
     override fun onStart() { super.onStart(); val sp = getSharedPreferences("own", 0)
@@ -93,8 +93,7 @@ class OwnerActivity : ComponentActivity() {
         status = "Securing session"; prog = .3f; delay(400)
         status = "Checking linked apps"; val m = withContext(Dispatchers.IO) { SyncClient.pull(act, MAIN_AUTH) }; val g = withContext(Dispatchers.IO) { SyncClient.pull(act, GEN_AUTH) }; prog = .8f; delay(350)
         status = (listOf(m, g).count { it != null }).toString() + " of 2 apps connected"; prog = 1f; delay(450); ready = true }
-    if (!ready) Splash(painterResource(R.drawable.logo), "UNOXIDIZED OWNER", "PRIVATE CONTROL CENTER", 2, status, prog, "👑")
-    else if (!act.unlocked) OwnerLogin(act) else OwnerMain(act)
+    SplashSwitch(ready, { CoolSplash(painterResource(R.drawable.logo), "NACHT X OWNER", "PRIVATE CONTROL CENTER", 2, status, prog) { CrownGlyph(30) } }) { if (!act.unlocked) OwnerLogin(act) else OwnerMain(act) }
 }
 
 @Composable fun OwnerLogin(act: OwnerActivity) {
@@ -123,9 +122,9 @@ class OwnerActivity : ComponentActivity() {
 
 class OS(val act: OwnerActivity, val sp: SharedPreferences) {
     var tick by mutableStateOf(0); var main by mutableStateOf<Bundle?>(null); var gen by mutableStateOf<Bundle?>(null); var lastSync by mutableStateOf(0L); var syncing by mutableStateOf(false)
-    val me = Lic.deviceId(act)
+    val me = Lic.deviceId(act); val ce = CE()
     fun installed(pkg: String) = try { act.packageManager.getPackageInfo(pkg, 0); true } catch (e: Exception) { false }
-    suspend fun sync() { syncing = true; val m = withContext(Dispatchers.IO) { SyncClient.pull(act, MAIN_AUTH) }; val g = withContext(Dispatchers.IO) { SyncClient.pull(act, GEN_AUTH) }; main = m; gen = g; lastSync = System.currentTimeMillis(); syncing = false; tick++ }
+    suspend fun sync() { syncing = true; val m = withContext(Dispatchers.IO) { SyncClient.pull(act, MAIN_AUTH) }; val g = withContext(Dispatchers.IO) { SyncClient.pull(act, GEN_AUTH) }; CtlState.data = withContext(Dispatchers.IO) { Control.fetch(sp) }; main = m; gen = g; lastSync = System.currentTimeMillis(); syncing = false; tick++ }
     fun send(k: String): Boolean = try { act.startActivity(Intent().setClassName("com.unoxidized.x", "com.unoxidized.x.MainActivity").putExtra("ux_key", k).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)); true } catch (e: Exception) { false }
     fun share(k: String) { act.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, k), "Share key").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }
@@ -133,10 +132,11 @@ class OS(val act: OwnerActivity, val sp: SharedPreferences) {
 @Composable fun KeyCard(os: OS, k: VKey, onDelete: () -> Unit) {
     val cb = LocalClipboardManager.current; val toast = LocalToast.current; val l = vleft(k)
     Glass(Modifier.swipeDelete(onDelete)) {
-        Row(verticalAlignment = Alignment.CenterVertically) { Text(k.dev, Modifier.weight(1f), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold); Chip(Lic.roleName(k.role).uppercase(), Color.White); Spacer(Modifier.width(6.dp)); Chip(if (l <= 0) "EXPIRED" else if (k.dur == 0L) "LIFETIME" else "$l DAYS", if (l <= 0) Bad else Ok) }
+        Row(verticalAlignment = Alignment.CenterVertically) { Text(k.dev, Modifier.weight(1f), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold); Chip(Lic.roleName(k.role).uppercase(), Glow); Spacer(Modifier.width(6.dp)); Chip(if (l <= 0) "EXPIRED" else if (k.dur == 0L) "LIFETIME" else "$l DAYS", if (l <= 0) Bad else Ok) }
         if (k.note.isNotBlank()) Text(k.note, color = Color(0xFFCCCCCC), fontSize = 13.sp)
         Text("Issued ${fmtT(k.issued)}", color = Dim, fontSize = 11.sp)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { MiniBtn("COPY") { cb.setText(AnnotatedString(k.key)); toast("Key copied") }; MiniBtn("SEND") { if (!os.send(k.key)) toast("Install Unoxidized X first") }; MiniBtn("SHARE") { os.share(k.key) }; MiniBtn("DELETE") { onDelete() } }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { MiniBtn("COPY") { cb.setText(AnnotatedString(k.key)); toast("Key copied") }; MiniBtn("SEND") { if (!os.send(k.key)) toast("Install NACHT X first") }; MiniBtn("SHARE") { os.share(k.key) } }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { MiniBtn("REVOKE") { if (!os.ce.revoked.contains(k.dev)) os.ce.revoked.add(k.dev); toast("Added to revoke list. Publish in Server control.") }; MiniBtn("DELETE") { onDelete() } }
     }
 }
 
@@ -150,7 +150,7 @@ class OS(val act: OwnerActivity, val sp: SharedPreferences) {
     StatRow("EXPIRING (3D)" to "${v.count { vleft(it) in 1..3 }}", "EXPIRED" to "${v.count { vleft(it) <= 0 }}")
     Cap("Quick actions")
     Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp)) { Tile(Modifier.weight(1f), "🔑", "ISSUE KEY", "Any role, any length") { go(1) }; Tile(Modifier.weight(1f), "🔄", "SYNC NOW", "Pull app status") { scope.launch { os.sync(); toast("Synced") } } }
-    Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp)) { Tile(Modifier.weight(1f), "🗄️", "KEY VAULT", "Everything you issued") { go(4) }; Tile(Modifier.weight(1f), "🔒", "LOCK NOW", "End this session") { os.act.unlocked = false } }
+    Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp)) { Tile(Modifier.weight(1f), "🌐", "SERVER CONTROL", "Revoke, announce, maintain") { go(4) }; Tile(Modifier.weight(1f), "🔒", "LOCK NOW", "End this session") { os.act.unlocked = false } }
     StatRow("FAILED ATTEMPTS" to "${os.sp.getInt("failsTotal", 0)}", "LAST LOGIN" to fmtT(os.sp.getLong("lastLogin", 0L)).take(12))
     Cap("Recent activity")
     val log = remember(os.tick) { OLog.list(os.sp).take(4) }
@@ -177,7 +177,7 @@ class OS(val act: OwnerActivity, val sp: SharedPreferences) {
                 val r = when (role) { "Moderator" -> "M"; "Administrator" -> "A"; else -> "F" }
                 key = Mint.key(dev, d, r); err = ""; Vault.add(os.sp, VKey(System.currentTimeMillis(), dev, r, System.currentTimeMillis(), d, key, note)); OLog.add(os.sp, "Issued $role key for $dev (" + (if (d == 0L) "lifetime" else "$d days") + ")"); os.tick++; toast("Key issued and saved") } }
         if (key.isNotEmpty()) Glass { Cap("New key (saved to the vault)"); androidx.compose.foundation.text.selection.SelectionContainer { Text(key, fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-            Btn("COPY KEY") { cb.setText(AnnotatedString(key)); toast("Key copied") }; Btn("SEND TO UNOXIDIZED X", false) { if (!os.send(key)) toast("Install Unoxidized X first") }; Btn("SHARE", false) { os.share(key) } }
+            Btn("COPY KEY") { cb.setText(AnnotatedString(key)); toast("Key copied") }; Btn("SEND TO NACHT X", false) { if (!os.send(key)) toast("Install NACHT X first") }; Btn("SHARE", false) { os.share(key) } }
     } else {
         Glass { Cap("Paste any key"); OutlinedTextField(insp, { insp = it }, Modifier.fillMaxWidth(), placeholder = { Text("UX-... or UX2-...") }, shape = RoundedCornerShape(14.dp), colors = fieldColors(), maxLines = 4)
             MiniBtn("PASTE") { insp = cb.getText()?.text ?: "" } }
@@ -199,21 +199,22 @@ class OS(val act: OwnerActivity, val sp: SharedPreferences) {
 @Composable fun SyncPage(os: OS) {
     val scope = rememberCoroutineScope(); val m = os.main; val g = os.gen
     H("Sync", "Live status from the other apps on this phone.")
-    Glass { Row(verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Cap("Last sync"); Text(fmtT(os.lastSync), fontWeight = FontWeight.Bold) }; if (os.syncing) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp), strokeWidth = 2.dp) }
+    Glass { Row(verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Cap("Last sync"); Text(fmtT(os.lastSync), fontWeight = FontWeight.Bold) }; if (os.syncing) CircularProgressIndicator(color = Glow, modifier = Modifier.size(22.dp), strokeWidth = 2.dp) }
         Btn("SYNC NOW", false, !os.syncing) { scope.launch { os.sync() } } }
-    AppCard("UNOXIDIZED X", "🎮", os.installed("com.unoxidized.x"), m) { b ->
+    AppCard("NACHT X", "🎮", os.installed("com.unoxidized.x"), m) { b ->
         StatRow("VERSION" to (b.getString("ver") ?: "?"), "DEVICE" to (b.getString("dev") ?: "?"))
         StatRow("LICENSE" to (if (b.getBoolean("lic")) "Valid" else (b.getString("licMsg") ?: "n/a")), "ACCESS" to (if (b.getBoolean("lic")) Lic.roleName(b.getString("role") ?: "F") else "n/a"))
         StatRow("DAYS LEFT" to (if (!b.getBoolean("lic")) "n/a" else if (b.getLong("left") > 9000) "Lifetime" else b.getLong("left").toString()), "SHIZUKU" to (if (b.getBoolean("shizuku")) "Authorized" else "Not connected"))
         StatRow("LAST BOOST" to fmtT(b.getLong("lastopt")).take(12), "LAST LAUNCH" to fmtT(b.getLong("lastlaunch")).take(12))
         StatRow("SESSIONS" to b.getInt("sessions").toString(), "LAST AVG FPS" to (b.getInt("lastFps").let { if (it < 0) "Not available" else it.toString() })) }
-    AppCard("UNOXIDIZED GENERATOR", "🗝️", os.installed("com.unoxidized.gen"), g) { b ->
+    AppCard("NACHT X GENERATOR", "🗝️", os.installed("com.unoxidized.gen"), g) { b ->
         StatRow("VERSION" to (b.getString("ver") ?: "?"), "DEVICES" to b.getInt("total").toString())
         StatRow("ACTIVE KEYS" to b.getInt("active").toString(), "EXPIRED" to b.getInt("expired").toString())
         b.getStringArrayList("ids")?.take(6)?.forEach { Text(it.replace(":", "  ·  ") + " day(s) left", fontSize = 12.sp, color = Color(0xFFCCCCCC)) } }
     Cap("Backend services")
-    Glass { listOf("API", "Database", "Authentication", "Key service", "Notifications").forEach { Row(verticalAlignment = Alignment.CenterVertically) { Text(it, Modifier.weight(1f)); Chip("NOT CONFIGURED", Dim) } }
-        Text("This build runs fully offline. Live user lists, remote revoke and push control need a server, which isn't connected, so no numbers are shown.", color = Dim, fontSize = 11.sp) }
+    Glass { val cd = CtlState.data
+        listOf("Control file" to (if (CtlState.online) "ONLINE" else "OFFLINE"), "Maintenance mode" to (if (cd?.maintenance == true) "ON" else "OFF"), "Announcement" to (if (cd?.announce?.isNotBlank() == true) "ACTIVE" else "NONE"), "Revoked devices" to "${cd?.revoked?.size ?: 0}").forEach { (k, v) -> Row(verticalAlignment = Alignment.CenterVertically) { Text(k, Modifier.weight(1f)); Chip(v, if (v == "ONLINE" || v == "ACTIVE") Ok else if (v == "ON") Warn else Dim) } }
+        Text("Remote control runs through your GitHub control file. A live list of every user would need a write-capable server, so no user counts are shown.", color = Dim, fontSize = 11.sp) }
 }
 
 @Composable fun SecPage(os: OS) {
@@ -259,29 +260,29 @@ class OS(val act: OwnerActivity, val sp: SharedPreferences) {
 }
 
 @Composable fun AboutPage() {
-    H("About", "Unoxidized Owner Control")
-    Glass { Row(verticalAlignment = Alignment.CenterVertically) { LogoImg(painterResource(R.drawable.logo), 64); Spacer(Modifier.width(14.dp)); Column { Text("UNOXIDIZED OWNER", fontWeight = FontWeight.Black, letterSpacing = 2.sp); Text("Private control center", color = Dim, fontSize = 12.sp) } }
-        Text("Made by @UnoxidizedX on Telegram. Works together with Unoxidized X and Unoxidized Generator on the same phone.", color = Color(0xFFCCCCCC), fontSize = 13.sp) }
+    H("About", "NACHT X Owner Control")
+    Glass { Row(verticalAlignment = Alignment.CenterVertically) { LogoImg(painterResource(R.drawable.logo), 64); Spacer(Modifier.width(14.dp)); Column { Text("NACHT X OWNER", fontWeight = FontWeight.Black, letterSpacing = 2.sp); Text("Private control center", color = Dim, fontSize = 12.sp) } }
+        Text("Made by @UnoxidizedX on Telegram. Works together with NACHT X and NACHT X Generator on the same phone.", color = Color(0xFFCCCCCC), fontSize = 13.sp) }
 }
 
 @Composable fun OwnerMain(act: OwnerActivity) {
     val sp = remember { act.getSharedPreferences("own", 0) }; val os = remember { OS(act, sp) }; val toast = LocalToast.current
     val drawer = rememberDrawerState(DrawerValue.Closed); val scope = rememberCoroutineScope(); var page by remember { mutableStateOf(0) }
-    val pages = listOf("Dashboard" to "🏠", "Key Studio" to "🔑", "Sync" to "🔄", "Security" to "🛡️", "Key Vault" to "🗄️", "Activity Log" to "📜", "Settings" to "⚙️", "About" to "ℹ️")
+    val pages = listOf("Dashboard" to "🏠", "Key Studio" to "🔑", "Sync" to "🔄", "Security" to "🛡️", "Server Control" to "🌐", "Key Vault" to "🗄️", "Activity Log" to "📜", "Settings" to "⚙️", "About" to "ℹ️")
     LaunchedEffect(Unit) { os.sync() }
     BackHandler(enabled = page != 0) { page = 0 }
     ModalNavigationDrawer({ ModalDrawerSheet(drawerContainerColor = Color(0xFF080808)) {
         Row(Modifier.padding(24.dp), verticalAlignment = Alignment.CenterVertically) { LogoImg(painterResource(R.drawable.logo), 52); Spacer(Modifier.width(12.dp))
-            Column { Text("UNOXIDIZED OWNER", fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = 2.sp); Text("PRIVATE CONTROL CENTER", color = Dim, fontSize = 9.sp, letterSpacing = 1.5.sp) } }
+            Column { Text("NACHT X OWNER", fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = 2.sp); Text("PRIVATE CONTROL CENTER", color = Dim, fontSize = 9.sp, letterSpacing = 1.5.sp) } }
         pages.forEachIndexed { i, (n, ic) -> NavigationDrawerItem({ Text("$ic   $n", fontWeight = FontWeight.Bold) }, i == page, { page = i; scope.launch { drawer.close() } }, Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
-            colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = Color(0xFF242424), unselectedContainerColor = Color.Transparent, selectedTextColor = Color.White, unselectedTextColor = Color(0xFFBBBBBB))) }
+            colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = Color(0xFF242424), unselectedContainerColor = Color.Transparent, selectedTextColor = Glow, unselectedTextColor = Color(0xFFBBBBBB))) }
     } }, drawerState = drawer) {
         Column(Modifier.fillMaxSize().systemBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(16.dp, 10.dp), verticalAlignment = Alignment.CenterVertically) { LogoImg(painterResource(R.drawable.logo), 40); Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) { Text("UNOXIDIZED OWNER", fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = 2.sp); Text(pages[page].first.uppercase(), color = Dim, fontSize = 9.sp, letterSpacing = 2.sp) }; Chip("OWNER", Ok) }
+                Column(Modifier.weight(1f)) { Text("NACHT X OWNER", fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = 2.sp); Text(pages[page].first.uppercase(), color = Dim, fontSize = 9.sp, letterSpacing = 2.sp) }; Chip("OWNER", Ok) }
             Box(Modifier.weight(1f).swipeTabs({ if (page in 1..3) { page-- } else if (page >= 4) { page = 0 } }, { if (page < 3) { page++ } })) {
                 PageSwitch(page) { p -> PullRefresh({ os.sync(); toast("Synced") }) { Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), Arrangement.spacedBy(14.dp)) {
-                    when (p) { 0 -> DashPage(os) { page = it }; 1 -> KeysPage(os); 2 -> SyncPage(os); 3 -> SecPage(os); 4 -> VaultPage(os); 5 -> LogPage(os); 6 -> SetPage(os); else -> AboutPage() }
+                    when (p) { 0 -> DashPage(os) { page = it }; 1 -> KeysPage(os); 2 -> SyncPage(os); 3 -> SecPage(os); 4 -> ControlPage(os); 5 -> VaultPage(os); 6 -> LogPage(os); 7 -> SetPage(os); else -> AboutPage() }
                     Spacer(Modifier.height(8.dp)) } } }
             }
             Box(Modifier.fillMaxWidth(), Alignment.Center) { Watermark() }

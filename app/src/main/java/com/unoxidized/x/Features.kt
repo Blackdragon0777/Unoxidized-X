@@ -9,6 +9,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -16,6 +18,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.unoxidized.shared.*
 import org.json.JSONArray
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 data class MyProf(val id: Long, val name: String, val sc: Float, val fps: Int, val mode: String)
@@ -45,7 +50,7 @@ fun profLabel(a: AS): String = PROFS.firstOrNull { it.key == a.prof }?.name?.low
             Cap(if (a.mine.any { it.id == p.id }) "Edit profile" else "New profile")
             OutlinedTextField(name, { name = it.take(24) }, Modifier.fillMaxWidth(), placeholder = { Text("Profile name") }, singleLine = true, shape = RoundedCornerShape(14.dp), colors = fieldColors())
             Text("Render scale ${ds(sc)}x", fontWeight = FontWeight.Bold)
-            Slider(sc, { sc = Math.round(it * 20) / 20f }, valueRange = 0.3f..1f, colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White, inactiveTrackColor = Color(0xFF2A2A2A)))
+            Slider(sc, { sc = Math.round(it * 20) / 20f }, valueRange = 0.3f..1f, colors = SliderDefaults.colors(thumbColor = Glow, activeTrackColor = Glow, inactiveTrackColor = Color(0xFF2A2A2A)))
             Cap("FPS target"); Pick(fpsOpts(a.maxHz).map { it.toString() }, clampFps(fps, a.maxHz).toString()) { fps = it.toInt() }
             Cap("Mode"); Pick(listOf("Performance", "Battery"), mode) { mode = it }
             Btn("SAVE PROFILE", true, name.isNotBlank()) { val np = MyProf(p.id, name.trim(), sc, clampFps(fps, a.maxHz), mode); val i = a.mine.indexOfFirst { it.id == p.id }; if (i >= 0) a.mine[i] = np else a.mine.add(np); a.saveMine(); a.editing = null }
@@ -60,7 +65,7 @@ fun profLabel(a: AS): String = PROFS.firstOrNull { it.key == a.prof }?.name?.low
     Glass {
         Row(verticalAlignment = Alignment.CenterVertically) { Cap("FPS and frame-time"); Spacer(Modifier.weight(1f)); Chip(if (on) "LIVE" else if (Session.watching) "WATCHING" else "OFF", if (on) Ok else Dim) }
         if (on) { Text(Session.fpsNow?.toString() ?: "--", fontSize = 44.sp, fontWeight = FontWeight.Black); Text(Session.fpsNote, color = Dim, fontSize = 11.sp)
-            if (Session.fpsHist.size > 1) Spark(Session.fpsHist, maxOf(a.maxHz, 60).toFloat(), Color.White) }
+            if (Session.fpsHist.size > 1) Spark(Session.fpsHist, maxOf(a.maxHz, 60).toFloat(), Glow) }
         else { Text(if (Session.watching) "Start CODM and recording begins automatically." else "Session tracking is off.", color = Color(0xFFCCCCCC), fontSize = 13.sp)
             if (!Session.watching) Btn("START TRACKING") { a.sp.edit().putBoolean("track", true).apply(); SessionService.start(a.c) } }
         Text("Frame data comes from Android's SurfaceFlinger through Shizuku. If your phone hides it, this says Not available.", color = Dim, fontSize = 11.sp)
@@ -127,4 +132,36 @@ fun stability(r: SessionRec): String = r.jank?.let { if (it <= 3) "Good" else if
             Row(verticalAlignment = Alignment.CenterVertically) { Text(fmt(s.start), Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 13.sp); Chip(if (s.optimized) "PROFILE" else "DEFAULT", if (s.optimized) Ok else Dim) }
             Text("${s.durSec / 60} min · avg ${s.avgFps ?: "n/a"} FPS · ${s.profile}", color = Dim, fontSize = 12.sp) } }
         Text("Swipe a session left or right to delete it.", color = Dim, fontSize = 11.sp) }
+}
+
+@Composable fun LinkedGen(c: android.content.Context) {
+    var b by remember { mutableStateOf<android.os.Bundle?>(null) }; val me = remember { Lic.deviceId(c) }
+    LaunchedEffect(Unit) { while (true) { b = withContext(Dispatchers.IO) { SyncClient.pull(c, "com.unoxidized.gen.sync") }; delay(5000) } }
+    Glass {
+        Row(verticalAlignment = Alignment.CenterVertically) { Cap("Linked app · Generator"); Spacer(Modifier.weight(1f)); Chip(if (b != null) "LINKED" else "NOT LINKED", if (b != null) Ok else Dim) }
+        val x = b
+        if (x == null) Text("Install NACHT X Generator on this phone to link it.", color = Dim, fontSize = 12.sp)
+        else { val mine = x.getStringArrayList("ids")?.firstOrNull { it.startsWith(me) }?.substringAfter(":")?.toLongOrNull()
+            StatRow("DEVICES" to x.getInt("total").toString(), "ACTIVE KEYS" to x.getInt("active").toString())
+            StatRow("THIS PHONE" to (if (mine == null) "No key yet" else if (mine > 0) "$mine days left" else "Expired"), "VERSION" to (x.getString("ver") ?: "?")) }
+        Btn("OPEN NACHT X GENERATOR", false) { Env.openApp(c, "com.unoxidized.gen") }
+    }
+}
+@Composable fun KeyReminder(a: AS) {
+    if (a.keyRole == "F" && a.keyLeft <= 2) Glass {
+        Row(verticalAlignment = Alignment.CenterVertically) { Chip("KEY EXPIRING", Warn); Spacer(Modifier.weight(1f)); Text(if (a.keyLeft <= 0) "today" else "${a.keyLeft} day(s) left", fontWeight = FontWeight.Black) }
+        Text("Open the Generator and make a new weekly key before this one ends.", color = Color(0xFFCCCCCC), fontSize = 12.sp)
+        Btn("OPEN NACHT X GENERATOR") { Env.openApp(a.c, "com.unoxidized.gen") }
+    }
+}
+@Composable fun RankCard(a: AS) {
+    val pts = remember(a.tick, Session.last, a.tk.done) { SessStore.list(a.sp).size * 3 + Hist.list(a.sp).count { it.second.contains("Boost") } }
+    val ranks = listOf(0 to "INITIATE", 6 to "SHADE", 18 to "PHANTOM", 45 to "NACHTLORD"); val cur = ranks.last { pts >= it.first }; val nxt = ranks.firstOrNull { it.first > pts }
+    Glass {
+        Row(verticalAlignment = Alignment.CenterVertically) { Cap("Shadow rank"); Spacer(Modifier.weight(1f)); Chip(cur.second, Glow) }
+        Text("$pts shadow points", fontWeight = FontWeight.Black, fontSize = 18.sp)
+        if (nxt != null) { Box(Modifier.fillMaxWidth().height(6.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFF1E1730))) { Box(Modifier.fillMaxWidth((pts - cur.first).toFloat() / (nxt.first - cur.first)).fillMaxHeight().background(WhiteGrad)) }
+            Text("${nxt.first - pts} more to ${nxt.second}", color = Dim, fontSize = 12.sp) } else Text("Top rank reached.", color = Ok, fontSize = 12.sp)
+        Text("Earn points by boosting (1 each) and recording CODM sessions (3 each).", color = Dim, fontSize = 11.sp)
+    }
 }

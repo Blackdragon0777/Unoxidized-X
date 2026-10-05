@@ -1,4 +1,4 @@
 pluginManagement{repositories{google();mavenCentral();gradlePluginPortal()}}
 dependencyResolutionManagement{repositories{google();mavenCentral()}}
 rootProject.name="UnoxidizedX"
-include(":app",":generator",":owner")
+include(":app",":generator",":owner",":info")
