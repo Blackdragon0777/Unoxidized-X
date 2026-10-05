@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<permission android:name="com.unoxidized.permission.SYNC" android:protectionLevel="signature"/>
 <queries><package android:name="com.unoxidized.x"/></queries>
 <application android:label="Unoxidized Generator" android:icon="@mipmap/ic_launcher" android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+<provider android:name=".GenSync" android:authorities="com.unoxidized.gen.sync" android:exported="true" android:permission="com.unoxidized.permission.SYNC"/>
 <activity android:name=".GenActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
 </application></manifest>

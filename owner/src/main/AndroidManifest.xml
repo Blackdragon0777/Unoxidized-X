@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<permission android:name="com.unoxidized.permission.SYNC" android:protectionLevel="signature"/>
+<uses-permission android:name="com.unoxidized.permission.SYNC"/>
+<queries><package android:name="com.unoxidized.x"/><package android:name="com.unoxidized.gen"/></queries>
+<application android:label="Unoxidized Owner" android:icon="@mipmap/ic_launcher" android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+<activity android:name=".OwnerActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
+</application></manifest>

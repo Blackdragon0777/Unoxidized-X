@@ -11,8 +11,11 @@ jobs:
         with: {gradle-version: "8.7"}
       - run: gradle assembleDebug
       - run: |
-          mkdir -p out
-          cp app/build/outputs/apk/debug/app-debug.apk "out/Unoxidized X.apk"
-          cp generator/build/outputs/apk/debug/generator-debug.apk "out/Unoxidized Generator.apk"
+          mkdir -p out/public out/private
+          cp app/build/outputs/apk/debug/app-debug.apk "out/public/Unoxidized X.apk"
+          cp generator/build/outputs/apk/debug/generator-debug.apk "out/public/Unoxidized Generator.apk"
+          cp owner/build/outputs/apk/debug/owner-debug.apk "out/private/Unoxidized Owner.apk"
       - uses: actions/upload-artifact@v4
-        with: {name: UnoxidizedX, path: out}
+        with: {name: UnoxidizedX, path: out/public}
+      - uses: actions/upload-artifact@v4
+        with: {name: UnoxidizedOwner-PRIVATE, path: out/private}

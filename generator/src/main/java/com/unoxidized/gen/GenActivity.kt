@@ -28,13 +28,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.unoxidized.shared.*
+import kotlinx.coroutines.delay
 
 class GenActivity : ComponentActivity() {
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
         val sp = getSharedPreferences("gen", 0); UiFlags.reduceMotion = sp.getBoolean("rm", false); UiFlags.haptics = sp.getBoolean("hp", true)
         setContent { MaterialTheme(darkColorScheme(primary = Color.White, onPrimary = Color.Black, background = Color.Black, surface = Color(0xFF0B0B0B), onSurface = Color.White)) {
-            Surface(Modifier.fillMaxSize(), color = Color.Black) { ToastRoot { TechBackground { GenApp(this@GenActivity) } } } } }
+            Surface(Modifier.fillMaxSize(), color = Color.Black) { ToastRoot { TechBackground { GenBoot(this@GenActivity) } } } } }
     }
 }
 
@@ -62,8 +63,8 @@ class GenActivity : ComponentActivity() {
             Column(Modifier.weight(1f)) { Text("UNOXIDIZED GENERATOR", fontWeight = FontWeight.Black, fontSize = 15.sp, letterSpacing = 2.sp); Text("WEEKLY ACCESS KEYS", color = Dim, fontSize = 9.sp, letterSpacing = 2.sp) }
             val l = left(me); Chip(if (l > 0) "ACTIVE" else "NO KEY", if (l > 0) Ok else Dim)
         }
-        Box(Modifier.weight(1f)) {
-            PageSwitch(tab) { t -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), Arrangement.spacedBy(14.dp)) {
+        Box(Modifier.weight(1f).swipeTabs({ if (tab > 0) { tab-- } }, { if (tab < 2) { tab++ } })) {
+            PageSwitch(tab) { t -> PullRefresh({ tick++; delay(400); toast("Updated") }) { Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), Arrangement.spacedBy(14.dp)) {
                 when (t) {
                     0 -> {
                         val l = left(me)
@@ -96,7 +97,7 @@ class GenActivity : ComponentActivity() {
                             Switch(rm, { rm = it; UiFlags.reduceMotion = it; sp.edit().putBoolean("rm", it).apply() }, colors = SwitchDefaults.colors(checkedThumbColor = Color.Black, checkedTrackColor = Color.White, uncheckedThumbColor = Color.Gray, uncheckedTrackColor = Color(0xFF222222))) } }
                         Glass { Cap("About"); Text("Unoxidized Generator", fontWeight = FontWeight.Bold); Text("Made by @UnoxidizedX on Telegram. One key per device ID per week.", color = Dim, fontSize = 12.sp) } }
                 }
-                Spacer(Modifier.height(8.dp)) } }
+                Spacer(Modifier.height(8.dp)) } } }
         }
         Box(Modifier.fillMaxWidth(), Alignment.Center) { Watermark() }
         NavBar(listOf("🔑" to "GENERATE", "🗂️" to "MY KEYS", "💡" to "HELP"), tab) { tab = it }

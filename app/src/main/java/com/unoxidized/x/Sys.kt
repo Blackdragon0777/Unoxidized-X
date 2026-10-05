@@ -53,4 +53,5 @@ object Hist {
         val a = JSONArray(sp.getString("hist", "[]")); (0 until a.length()).map { val o = a.getJSONObject(it); o.getLong("t") to o.getString("m") }
     } catch (e: Exception) { emptyList() }
     fun clear(sp: SharedPreferences) { sp.edit().remove("hist").apply() }
+    fun remove(sp: SharedPreferences, t: Long) { val n = JSONArray(); list(sp).filter { it.first != t }.forEach { n.put(JSONObject().put("t", it.first).put("m", it.second)) }; sp.edit().putString("hist", n.toString()).apply() }
 }

@@ -46,6 +46,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Velocity
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 val Ln = Color(0xFF2A2A2A); val Dim = Color(0xFF8C8C8C); val Ok = Color(0xFF3DDC84); val Bad = Color(0xFFFF6B6B); val Warn = Color(0xFFFFC857)
 val WhiteGrad = Brush.horizontalGradient(listOf(Color.White, Color(0xFFB8B8B8)))
@@ -146,3 +157,76 @@ fun Modifier.press(onClick: () -> Unit): Modifier = composed {
         }
     }
 }
+
+fun Modifier.swipeDelete(onDelete: () -> Unit): Modifier = composed {
+    var dx by remember { mutableStateOf(0f) }; val x by animateFloatAsState(dx, tween(if (dx == 0f) 160 else 40), label = "sw")
+    this.offset { IntOffset(x.roundToInt(), 0) }.graphicsLayer { alpha = 1f - (abs(x) / 1200f).coerceIn(0f, 0.5f) }
+        .pointerInput(Unit) { detectHorizontalDragGestures(onDragEnd = { if (abs(dx) > 240f) onDelete(); dx = 0f }, onDragCancel = { dx = 0f }) { change, d -> change.consume(); dx += d } }
+}
+fun Modifier.swipeTabs(onRight: () -> Unit, onLeft: () -> Unit): Modifier = composed {
+    var tot by remember { mutableStateOf(0f) }; val r = rememberUpdatedState(onRight); val l = rememberUpdatedState(onLeft)
+    this.pointerInput(Unit) { detectHorizontalDragGestures(onDragEnd = { if (tot > 150f) r.value() else if (tot < -150f) l.value(); tot = 0f }, onDragCancel = { tot = 0f }) { _, d -> tot += d } }
+}
+@Composable fun PullRefresh(onRefresh: suspend () -> Unit, content: @Composable () -> Unit) {
+    var pull by remember { mutableStateOf(0f) }; var busy by remember { mutableStateOf(false) }; val scope = rememberCoroutineScope()
+    val th = with(LocalDensity.current) { 84.dp.toPx() }
+    val conn = remember { object : NestedScrollConnection {
+        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+            if (pull > 0f && available.y < 0f) { val d = maxOf(available.y, -pull); pull += d; return Offset(0f, d) }
+            return Offset.Zero }
+        override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+            if (!busy && source == NestedScrollSource.Drag && available.y > 0f) { pull = (pull + available.y * 0.5f).coerceAtMost(th * 1.5f); return Offset(0f, available.y) }
+            return Offset.Zero }
+        override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+            if (pull >= th && !busy) { busy = true; scope.launch { try { onRefresh() } finally { busy = false } } }
+            pull = 0f; return Velocity.Zero }
+    } }
+    Box(Modifier.fillMaxSize().nestedScroll(conn)) {
+        Box(Modifier.fillMaxSize().graphicsLayer { translationY = if (busy) th * 0.55f else pull * 0.55f }) { content() }
+        if (pull > 0f || busy) Box(Modifier.align(Alignment.TopCenter).padding(top = 6.dp).size(32.dp).clip(CircleShape).background(Color(0xFF1E1E1E)), Alignment.Center) {
+            if (busy) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+            else Canvas(Modifier.size(18.dp)) { drawArc(Color.White, -90f, 360f * (pull / th).coerceAtMost(1f), false, style = Stroke(4f, cap = StrokeCap.Round)) } }
+    }
+}
+
+@Composable fun Loader(style: Int, progress: Float) {
+    val t = rememberInfiniteTransition(label = "ld"); val rot = t.animateFloat(0f, 360f, infiniteRepeatable(tween(1200, easing = LinearEasing)), label = "r")
+    if (style == 1) { val p by animateFloatAsState(progress, tween(400), label = "pg")
+        Box(Modifier.width(240.dp).height(8.dp).clip(CircleShape).background(Color(0xFF1E1E1E)).border(1.dp, Color(0xFF444444), CircleShape)) { Box(Modifier.fillMaxWidth(p.coerceIn(0.03f, 1f)).fillMaxHeight().background(WhiteGrad)) }
+    } else Canvas(Modifier.size(if (style == 2) 52.dp else 44.dp)) {
+        val n = if (style == 2) 16 else 12; val c = Offset(size.width / 2, size.height / 2); val r = size.minDimension / 2
+        for (i in 0 until n) {
+            val ang = i * 360f / n; val lead = (((ang - rot.value) % 360f) + 360f) % 360f; val a = 1f - lead / 360f
+            if (style == 2) { val rad = Math.toRadians(ang.toDouble()); val x = kotlin.math.cos(rad).toFloat(); val y = kotlin.math.sin(rad).toFloat()
+                drawLine(Color.White.copy(alpha = a), Offset(c.x + x * r * 0.62f, c.y + y * r * 0.62f), Offset(c.x + x * r, c.y + y * r), strokeWidth = 4f, cap = StrokeCap.Round)
+            } else drawArc(Color.White.copy(alpha = a), ang, 16f, false, Offset(3f, 3f), Size(size.width - 6f, size.height - 6f), style = Stroke(5f, cap = StrokeCap.Round))
+        }
+    }
+}
+@Composable fun Splash(logo: Painter, title: String, sub: String, style: Int, status: String, progress: Float, icon: String = "") {
+    Column(Modifier.fillMaxSize().padding(24.dp), Arrangement.Center, Alignment.CenterHorizontally) {
+        LogoImg(logo, 200); Spacer(Modifier.height(18.dp))
+        Text(title, fontSize = 26.sp, fontWeight = FontWeight.Black, letterSpacing = 5.sp); Text(sub, color = Dim, fontSize = 11.sp, letterSpacing = 3.sp)
+        if (icon.isNotEmpty()) { Spacer(Modifier.height(14.dp)); Text(icon, fontSize = 26.sp) }
+        Spacer(Modifier.height(36.dp)); Loader(style, progress); Spacer(Modifier.height(14.dp)); Text(status, color = Dim, fontSize = 12.sp, letterSpacing = 1.sp)
+        Spacer(Modifier.height(30.dp)); Watermark()
+    }
+}
+@Composable fun Pick(opts: List<String>, sel: String, set: (String) -> Unit) = Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(8.dp)) {
+    opts.forEach { o -> val on = o == sel; val bg by animateColorAsState(if (on) Color.White else Color(0xFF141414), label = "pk")
+        Box(Modifier.weight(1f).press { set(o) }.height(48.dp).clip(RoundedCornerShape(14.dp)).background(bg).border(1.dp, if (on) Color.White else Ln, RoundedCornerShape(14.dp)), Alignment.Center) {
+            Text(o, color = if (on) Color.Black else Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1) } }
+}
+@Composable fun Stat(m: Modifier, k: String, v: String) = Column(m.clip(RoundedCornerShape(14.dp)).background(Color(0xFF111111)).border(1.dp, Ln, RoundedCornerShape(14.dp)).padding(12.dp)) { Cap(k); Text(v, fontWeight = FontWeight.Black, fontSize = if (v.length > 10) 12.sp else 16.sp, maxLines = 1) }
+@Composable fun StatRow(vararg p: Pair<String, String>) = Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(10.dp)) { p.forEach { Stat(Modifier.weight(1f), it.first, it.second) } }
+@Composable fun Toggle(t: String, s: String, on: Boolean, set: (Boolean) -> Unit) = Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Column(Modifier.weight(1f)) { Text(t, fontWeight = FontWeight.Bold); Text(s, color = Dim, fontSize = 12.sp) }
+    Switch(on, set, colors = SwitchDefaults.colors(checkedThumbColor = Color.Black, checkedTrackColor = Color.White, uncheckedThumbColor = Color.Gray, uncheckedTrackColor = Color(0xFF222222)))
+}
+@Composable fun Tile(m: Modifier, ic: String, name: String, desc: String, on: Boolean = false, click: () -> Unit) {
+    val sh = RoundedCornerShape(18.dp)
+    Column(m.press(click).height(100.dp).clip(sh).background(if (on) Brush.linearGradient(listOf(Color.White, Color(0xFFC9C9C9))) else Brush.linearGradient(listOf(Color(0xFF1C1C1C), Color(0xFF0E0E0E)))).border(1.dp, if (on) Color.White else Ln, sh).padding(14.dp), Arrangement.SpaceBetween) {
+        Text(ic, fontSize = 24.sp); Column { Text(name, color = if (on) Color.Black else Color.White, fontWeight = FontWeight.Black, fontSize = 14.sp); Text(desc, color = if (on) Color(0xFF444444) else Dim, fontSize = 11.sp) } }
+}
+@Composable fun Confirm(title: String, body: String, yes: () -> Unit, no: () -> Unit) = androidx.compose.ui.window.Dialog(no) {
+    Glass(Modifier.padding(20.dp)) { Text(title, fontWeight = FontWeight.Black, fontSize = 18.sp); Text(body, color = Dim, fontSize = 13.sp); Btn("CONFIRM", true, onClick = yes); Btn("CANCEL", false, onClick = no) } }

@@ -98,6 +98,9 @@ class AS(val c: Context, val sp: SharedPreferences) {
     var scale by mutableStateOf(sp.getFloat("sc", 0.8f)); var fps by mutableStateOf(clampFps(sp.getInt("fps", 60), maxHz))
     var mode by mutableStateOf(sp.getString("md", "Performance") ?: "Performance"); var hz by mutableStateOf(sp.getInt("hz", maxHz))
     var prof by mutableStateOf(sp.getString("prof", "") ?: ""); var snap by mutableStateOf(Sys.snap(c)); var log by mutableStateOf("Ready.")
+    var tick by mutableStateOf(0); val mine = mutableStateListOf<MyProf>().also { it.addAll(ProfStore.load(sp)) }; var editing by mutableStateOf<MyProf?>(null)
+    fun saveMine() { ProfStore.save(sp, mine) }
+    fun applyMine(p: MyProf) { scale = p.sc; fps = clampFps(p.fps, maxHz); mode = p.mode; prof = "my:" + p.id; apply("Profile " + p.name) }
     val launchCmd: String get() = "monkey -p $pkg -c android.intent.category.LAUNCHER 1"
     fun save() { sp.edit().putFloat("sc", scale).putInt("fps", fps).putString("md", mode).putString("pkg", pkg).putInt("hz", hz).putString("prof", prof).apply() }
     fun run(cmd: String) { log = "Running..."; thread { val r = Sh.run(cmd); log = "$ $cmd\n$r" } }
@@ -129,7 +132,7 @@ class MainActivity : ComponentActivity() {
         val sp = getSharedPreferences("ux", 0); UiFlags.reduceMotion = sp.getBoolean("rm", false); UiFlags.haptics = sp.getBoolean("hp", true)
         setContent {
             MaterialTheme(darkColorScheme(primary = Color.White, onPrimary = Color.Black, background = Color.Black, surface = Color(0xFF0B0B0B), onSurface = Color.White, onBackground = Color.White, secondaryContainer = Color(0xFF242424), onSecondaryContainer = Color.White)) {
-                Surface(Modifier.fillMaxSize(), color = Color.Black) { ToastRoot { TechBackground { App(this@MainActivity, incoming) { incoming = null } } } }
+                Surface(Modifier.fillMaxSize(), color = Color.Black) { ToastRoot { TechBackground { Boot(this@MainActivity, incoming) { incoming = null } } } }
             }
         }
     }
@@ -259,19 +262,20 @@ class MainActivity : ComponentActivity() {
             Chip(if (sc >= 80) "SYSTEM READY" else if (sc >= 60) "FAIR" else "NEEDS ATTENTION", col)
             Chip(if (ready) "SHIZUKU CONNECTED" else "PERMISSION REQUIRED", if (ready) Ok else Bad)
             Text("Based on RAM, heat, battery and storage. It is not an FPS prediction.", color = Dim, fontSize = 11.sp) } } }
+    if (Session.active) Glass { Row(verticalAlignment = Alignment.CenterVertically) { Chip("CODM SESSION LIVE", Ok); Spacer(Modifier.weight(1f)); Text(Session.fpsNow?.let { "$it FPS" } ?: "Measuring", fontWeight = FontWeight.Black) } }
     Btn("BOOST & LAUNCH CODM") { a.boost(true) }
     Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp)) { Tile(Modifier.weight(1f), "⚡", "BOOST", "Optimize, don't launch") { a.boost(false) }; Tile(Modifier.weight(1f), "🎮", "CODM PROFILE", "Choose a profile") { go(1) } }
     Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp)) { Tile(Modifier.weight(1f), "📊", "LIVE MONITOR", "CPU, RAM, heat") { go(2) }; Tile(Modifier.weight(1f), "🧰", "TOOLS", "Info and restore") { go(3) } }
     Cap("Device status")
     StatRow("RAM" to "${s.ramPct}%", "BATTERY" to (if (s.batt < 0) "Not available" else "${s.batt}%"))
     StatRow("TEMP" to (s.tempC?.let { "%.1f°C".format(java.util.Locale.US, it) } ?: "Not available"), "STORAGE" to "${s.storPct}%")
-    StatRow("SCREEN" to "${s.hz} Hz", "PROFILE" to (PROFS.firstOrNull { it.key == a.prof }?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Custom"))
+    StatRow("SCREEN" to "${s.hz} Hz", "PROFILE" to (profLabel(a)))
     Text("Last optimization: ${fmt(a.sp.getLong("lastopt", 0L))}", color = Dim, fontSize = 12.sp)
 }
 
 @Composable fun GamePage(a: AS) {
     var inst by remember { mutableStateOf<Boolean?>(null) }; var runn by remember { mutableStateOf<Boolean?>(null) }
-    LaunchedEffect(a.pkg) { while (true) { val i = withContext(Dispatchers.IO) { Sys.installed(a.pkg) }; val r = withContext(Dispatchers.IO) { Sys.running(a.pkg) }; inst = i; runn = r; delay(4000) } }
+    LaunchedEffect(a.pkg, a.tick) { while (true) { val i = withContext(Dispatchers.IO) { Sys.installed(a.pkg) }; val r = withContext(Dispatchers.IO) { Sys.running(a.pkg) }; inst = i; runn = r; delay(4000) } }
     H("CODM", "Your game control center.")
     Glass {
         Row(verticalAlignment = Alignment.CenterVertically) { Text("🎮", fontSize = 30.sp); Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text("Call of Duty: Mobile", fontWeight = FontWeight.Bold, fontSize = 16.sp); Text(a.pkg, color = Dim, fontSize = 11.sp) } }
@@ -280,6 +284,7 @@ class MainActivity : ComponentActivity() {
             if (runn == null) Skel(Modifier.size(100.dp, 24.dp)) else Chip(if (runn == true) "RUNNING" else "NOT RUNNING", if (runn == true) Ok else Dim) }
         if (inst == false) Text("Not found. If you use another CODM version, change the package in Tools.", color = Warn, fontSize = 12.sp)
         Text("Last optimization: ${fmt(a.sp.getLong("lastopt", 0L))}", color = Dim, fontSize = 12.sp)
+        Text("Last launch detected: ${fmt(a.sp.getLong("lastlaunch", 0L))}", color = Dim, fontSize = 12.sp)
         Btn("LAUNCH CODM", true, inst == true) { a.run(a.launchCmd) }; Btn("RESTART CODM", false, inst == true) { a.run("am force-stop ${a.pkg}; ${a.launchCmd}") }
     }
     Cap("Profiles")
@@ -290,6 +295,7 @@ class MainActivity : ComponentActivity() {
             Text(p.desc, color = Dim, fontSize = 12.sp); Text("${ds(p.sc)}x · up to ${clampFps(p.fps, a.maxHz)} FPS · ${p.mode}", color = Color(0xFFBBBBBB), fontSize = 11.sp)
         } }
     Text("Profiles don't guarantee a specific FPS. Results depend on your device, heat and the game.", color = Dim, fontSize = 11.sp)
+    MyProfilesSection(a)
     Cap("Fine tune")
     Glass { Cap("Render scale"); Text("${ds(a.scale)}x", fontSize = 40.sp, fontWeight = FontWeight.Black)
         Slider(a.scale, { a.scale = (Math.round(it * 20) / 20f); a.prof = "" }, valueRange = 0.3f..1f, colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White, inactiveTrackColor = Color(0xFF2A2A2A)))
@@ -316,8 +322,7 @@ class MainActivity : ComponentActivity() {
     Metric("RAM", "${s.ramPct}%", m.ram, 100f, Color(0xFF9EC5FF))
     Metric("BATTERY TEMP", temp?.let { "%.1f°C".format(java.util.Locale.US, it) } ?: "Not available", m.tmp, 60f, Warn, temp == null)
     StatRow("BATTERY" to (if (s.batt < 0) "Not available" else "${s.batt}%" + if (s.charging) " ⚡" else ""), "STORAGE" to "${s.storPct}% of ${s.storGb} GB")
-    Glass { Cap("FPS and frame-time"); Text("Not available", fontSize = 20.sp, fontWeight = FontWeight.Black)
-        Text("Android does not let normal apps read another app's frame rate, and this app won't invent numbers. Use CODM's own FPS counter.", color = Dim, fontSize = 12.sp) }
+    FpsCard(a)
 }
 
 @Composable fun ToolsPage(a: AS) {
@@ -363,15 +368,16 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable fun HistPage(a: AS) {
-    var tick by remember { mutableStateOf(0) }; val items = remember(tick) { Hist.list(a.sp) }
+    var tick by remember { mutableStateOf(0) }; val items = remember(tick, a.tick) { Hist.list(a.sp) }
     val dk = { t: Long -> java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).format(java.util.Date(t)) }
     val now = System.currentTimeMillis(); val today = dk(now); val yest = dk(now - 86400000L)
     H("History", "What this app actually applied on your phone.")
     if (items.isEmpty()) Glass { Text("No history yet", fontWeight = FontWeight.Bold); Text("Applied profiles, boosts and restores will show up here.", color = Dim, fontSize = 12.sp) }
     else { var last = ""
         items.forEach { (t, m) -> val k = dk(t); if (k != last) { last = k; Cap(if (k == today) "Today" else if (k == yest) "Yesterday" else java.text.DateFormat.getDateInstance().format(java.util.Date(t))) }
-            Glass { Text(m, fontWeight = FontWeight.Bold); Text(java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(t)), color = Dim, fontSize = 12.sp) } }
-        Btn("CLEAR HISTORY", false) { Hist.clear(a.sp); tick++ } }
+            Glass(Modifier.swipeDelete { Hist.remove(a.sp, t); tick++ }) { Text(m, fontWeight = FontWeight.Bold); Text(java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(t)), color = Dim, fontSize = 12.sp) } }
+        Btn("CLEAR HISTORY", false) { Hist.clear(a.sp); tick++ }
+        Text("Swipe an entry left or right to delete it.", color = Dim, fontSize = 11.sp) }
 }
 
 @Composable fun GuidePage(a: AS) {
@@ -398,6 +404,7 @@ class MainActivity : ComponentActivity() {
     Glass { Cap("Appearance")
         Toggle("Reduce motion", "Calmer background and shorter transitions", rm) { rm = it; UiFlags.reduceMotion = it; a.sp.edit().putBoolean("rm", it).apply() }
         Toggle("Haptic feedback", "Vibrate lightly on button taps", hp) { hp = it; UiFlags.haptics = it; a.sp.edit().putBoolean("hp", it).apply() } }
+    TrackingSettings(a)
     Cap("Transparency")
     Glass { Text("What Unoxidized X does", fontWeight = FontWeight.Bold)
         Text("• Writes an Android Game Mode profile for CODM (resolution scale and FPS cap).\n• Closes background apps and changes system animation or refresh settings only when you ask.\n• Reads RAM, battery, temperature and storage from Android.", color = Color(0xFFCCCCCC), fontSize = 12.sp)
@@ -409,8 +416,9 @@ class MainActivity : ComponentActivity() {
     val dev = Lic.deviceId(a.c); val r = Lic.check(dev, key)
     H("Account", "Your access.")
     Glass { Cap("Device ID"); Row(verticalAlignment = Alignment.CenterVertically) { Text(dev, Modifier.weight(1f), fontFamily = FontFamily.Monospace, fontSize = 18.sp); CopyChip(dev) }
-        Cap("Key expires"); Text(Lic.until(r.day) + "  (${r.left} days left)")
-        Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(Color(0xFF222222))) { Box(Modifier.fillMaxWidth(r.left / 7f).fillMaxHeight().background(WhiteGrad)) }
+        Cap("Access level"); Text(Lic.roleName(r.role), fontWeight = FontWeight.Bold)
+        Cap("Key expires"); Text(r.untilText + (if (r.left > 9000) "" else "  (${r.left} days left)"))
+        Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(Color(0xFF222222))) { Box(Modifier.fillMaxWidth(r.frac).fillMaxHeight().background(WhiteGrad)) }
         Cap("Made by"); Text("@UnoxidizedX on Telegram", fontWeight = FontWeight.Bold) }
     Btn("OPEN UNOXIDIZED GENERATOR", false) { Env.openApp(a.c, "com.unoxidized.gen") }
     Btn("LOG OUT", false, onClick = logout)
@@ -418,7 +426,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable fun Main(c: Context, sp: SharedPreferences, key: String, logout: () -> Unit) {
     val a = remember { AS(c, sp) }; val drawer = rememberDrawerState(DrawerValue.Closed); val scope = rememberCoroutineScope()
-    val pages = listOf("Home" to "🏠", "Game" to "🎮", "Monitor" to "📊", "Tools" to "🧰", "Import" to "📥", "History" to "🕘", "Guide" to "📖", "Settings" to "⚙️", "Account" to "👤")
+    val pages = listOf("Home" to "🏠", "Game" to "🎮", "Monitor" to "📊", "Tools" to "🧰", "Sessions" to "⏱️", "Import" to "📥", "History" to "🕘", "Guide" to "📖", "Settings" to "⚙️", "Account" to "👤")
     var page by remember { mutableStateOf(0) }
     LaunchedEffect(Unit) { while (true) { a.snap = Sys.snap(c); delay(2500) } }
     LaunchedEffect(page) { if (page == 2) while (true) {
@@ -427,8 +435,12 @@ class MainActivity : ComponentActivity() {
         val cpu = withContext(Dispatchers.IO) { Sys.cpu() }; m.cpuTries++; if (cpu != null) { m.cpuNow = cpu; m.add(m.cpu, cpu.toFloat()) }
         delay(1500) } }
     BackHandler(enabled = page != 0) { page = 0 }
+    val toast = LocalToast.current
+    val refresh: suspend (Int) -> Unit = { p -> a.snap = Sys.snap(c); a.tick++; if (p == 2) { a.mon.cpu.clear(); a.mon.ram.clear(); a.mon.tmp.clear(); a.mon.cpuTries = 0 }; delay(500); toast("Updated") }
+    val notif = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    LaunchedEffect(Unit) { if (sp.getBoolean("track", true)) { if (android.os.Build.VERSION.SDK_INT >= 33 && c.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) notif.launch(android.Manifest.permission.POST_NOTIFICATIONS); SessionService.start(c) } }
     val go: (Int) -> Unit = { i -> page = i }
-    TaskDialog(a)
+    TaskDialog(a); ProfEditor(a)
     ModalNavigationDrawer({ ModalDrawerSheet(drawerContainerColor = Color(0xFF080808)) {
         Row(Modifier.padding(24.dp), verticalAlignment = Alignment.CenterVertically) { LogoImg(painterResource(R.drawable.logo), 52); Spacer(Modifier.width(12.dp))
             Column { Text("UNOXIDIZED X", fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 3.sp); Text("CODM PERFORMANCE CENTER", color = Dim, fontSize = 9.sp, letterSpacing = 1.5.sp) } }
@@ -441,10 +453,10 @@ class MainActivity : ComponentActivity() {
                 Column(Modifier.weight(1f)) { Text("UNOXIDIZED X", fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = 3.sp); Text("CODM PERFORMANCE CENTER", color = Dim, fontSize = 9.sp, letterSpacing = 2.sp) }
                 val ok = Sh.granted(); Chip(if (ok) "CONNECTED" else "NO ACCESS", if (ok) Ok else Bad)
             }
-            Box(Modifier.weight(1f)) {
-                PageSwitch(page) { p -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), Arrangement.spacedBy(14.dp)) {
-                    when (p) { 0 -> HomePage(a, go); 1 -> GamePage(a); 2 -> MonitorPage(a); 3 -> ToolsPage(a); 4 -> ImportPage(a); 5 -> HistPage(a); 6 -> GuidePage(a); 7 -> SettingsPage(a); else -> AccountPage(a, key, logout) }
-                    Spacer(Modifier.height(8.dp)) } }
+            Box(Modifier.weight(1f).swipeTabs({ if (page in 1..3) { page-- } else if (page >= 4) { page = 0 } }, { if (page < 3) { page++ } })) {
+                PageSwitch(page) { p -> PullRefresh({ refresh(p) }) { Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), Arrangement.spacedBy(14.dp)) {
+                    when (p) { 0 -> HomePage(a, go); 1 -> GamePage(a); 2 -> MonitorPage(a); 3 -> ToolsPage(a); 4 -> SessionsPage(a); 5 -> ImportPage(a); 6 -> HistPage(a); 7 -> GuidePage(a); 8 -> SettingsPage(a); else -> AccountPage(a, key, logout) }
+                    Spacer(Modifier.height(8.dp)) } } }
             }
             Box(Modifier.fillMaxWidth(), Alignment.Center) { Watermark() }
             NavBar(listOf("🏠" to "HOME", "🎮" to "GAME", "📊" to "MONITOR", "🧰" to "TOOLS", "☰" to "MORE"), if (page < 4) page else 4) { i -> if (i == 4) { scope.launch { drawer.open() } } else { page = i } }
