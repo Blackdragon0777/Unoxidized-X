@@ -23,7 +23,7 @@ object Control {
     /** Fetches the file; falls back to the last good copy when offline or when the file doesn't exist yet. */
     fun fetch(sp: SharedPreferences): Data? {
         val raw = try { val c = URL("$FILE_URL?t=${System.currentTimeMillis()}").openConnection() as HttpURLConnection; c.connectTimeout = 4000; c.readTimeout = 4000; c.setRequestProperty("Cache-Control", "no-cache")
-            if (c.responseCode == 200) c.inputStream.bufferedReader().readText() else null } catch (e: Exception) { null }
+            val rc = c.responseCode; CtlState.noFile = rc == 404; if (rc == 200) c.inputStream.bufferedReader().readText() else null } catch (e: Exception) { null }
         if (raw != null && parse(raw) != null) sp.edit().putString("ctl_raw", raw).putLong("ctl_at", System.currentTimeMillis()).apply()
         CtlState.online = raw != null && parse(raw) != null
         return parse(raw ?: sp.getString("ctl_raw", "") ?: "")
@@ -32,6 +32,6 @@ object Control {
         for (i in 0 until maxOf(a.size, b.size)) { val x = a.getOrElse(i) { 0 }; val y = b.getOrElse(i) { 0 }; if (x != y) return x > y }; return false }
 }
 object CtlState {
-    var data by mutableStateOf<Control.Data?>(null); var dismissed by mutableStateOf(-1); var online by mutableStateOf(false)
+    var data by mutableStateOf<Control.Data?>(null); var dismissed by mutableStateOf(-1); var online by mutableStateOf(false); var noFile by mutableStateOf(false)
     fun revoked(dev: String) = data?.revoked?.contains(dev.uppercase()) == true
 }

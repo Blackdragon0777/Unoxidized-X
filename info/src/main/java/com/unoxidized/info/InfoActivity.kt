@@ -56,10 +56,18 @@ val GUIDE = listOf(
     Sec("📊", "Compare your results", listOf("Play one session with a profile on.", "Tools > RESTORE DEFAULTS, then play another session.", "Sessions > Compare shows your real numbers side by side.")),
     Sec("⬆️", "Update the apps", listOf("Download the new zip from the same link.", "Install the new APKs over the old ones.", "Your keys, profiles and history stay.")),
     Sec("🧯", "Troubleshooting", listOf("Shizuku stops after a reboot: open Shizuku and Start it again.", "Key says invalid: copy the whole key, or check the device ID matches.", "Profile not kept: some phones or CODM versions reject Game Mode profiles. The popup shows the reason.", "FPS says Not available: Android is hiding frame data on your phone.", "Locked out with Revoked or Maintenance: contact @UnoxidizedX.")))
-val FAQ = listOf("Is this a cheat or a hack?" to "No. It only writes an Android Game Mode profile (resolution scale and FPS cap), cleans background apps and reads system stats. It never edits CODM files or touches the game.",
-    "Will it get me banned?" to "It doesn't modify the game, so it works through the official Android route. No tool can promise anything about a game's own rules though.", "Why does it need Shizuku?" to "Android only lets the shell change Game Mode profiles. Shizuku gives the app that access after you approve it.",
-    "Does it guarantee more FPS?" to "No. Results depend on your phone, heat and the game. Use Sessions > Compare to see your own real numbers.", "Why do keys expire?" to "Free keys last 7 days. The owner can issue longer ones.",
-    "Why does FPS say Not available?" to "Some phones hide frame data from apps. The app says so instead of inventing numbers.", "Does it work on every phone?" to "It targets Android 8+ and works best on Android 12+ with Game Mode support.")
+val FAQ = listOf(
+    "What is NACHT X?" to "A shadow-themed performance center for Call of Duty: Mobile. It tunes resolution scale and FPS cap through Android Game Mode, cleans background apps, watches your phone's heat and RAM, and records your real sessions.",
+    "Which Android versions work?" to "The apps install on Android 6 and every newer version, up to the latest Android 17. Game Mode profiles (resolution scale and FPS cap) use features Android added in version 12, so on 12 and newer you get the full experience. Every version gets the boost clean-up, live monitor, tools, sessions and the key system.",
+    "How do I see my real FPS?" to "Turn on session tracking in Settings, then open CODM. NACHT X reads frame data from Android through Shizuku. If you don't see a number, tap TEST FPS NOW on the Monitor tab and it tells you exactly what your phone allows.",
+    "What is Shadow Rank?" to "Your rank grows as you play. Every boost gives 1 point and every recorded CODM session gives 3. Climb from Initiate to Shade, Phantom and finally Nachtlord.",
+    "Cheat or tool?" to "Pure tool. It never touches CODM's files, memory or network. It only changes Android's own settings for the game, so your account and the game stay untouched.",
+    "Why does it need Shizuku?" to "Android only lets the system shell change Game Mode profiles. Shizuku lends the app that access after you approve it, and you can revoke it anytime.",
+    "Will it guarantee more FPS?" to "No honest tool can. Results depend on your phone, heat and the game. Use Sessions > Compare to see your own real numbers with and without a profile.",
+    "What happens when my key expires?" to "NACHT X returns to the key screen. Open NACHT X Generator, make a fresh key and tap Send. Your profiles and history stay exactly as they were.",
+    "Can one key work on two phones?" to "Each key is locked to one device ID. Make a separate key for every phone, the Generator can do it for any ID you paste.",
+    "How do I share my setup?" to "Export your profile as a short UXP1 code on the Import page and send it to a friend. They paste it and it applies in one tap.",
+    "Does session tracking drain my battery?" to "It's a tiny background service that checks every few seconds only while enabled. Turn it off in Settings any time.")
 
 class InfoActivity : ComponentActivity() {
     override fun onCreate(b: Bundle?) {
@@ -152,7 +160,7 @@ fun ver(c: Context, pkg: String): String? = try { c.packageManager.getPackageInf
 @Composable fun FaqP() { H("FAQ", "Quick answers."); FAQ.forEach { (q, a) -> Expand("❓", q) { Text(a, color = Color(0xFFDDDDDD), fontSize = 13.sp) } } }
 @Composable fun UpdatesP(c: Context, sp: android.content.SharedPreferences) { val scope = rememberCoroutineScope(); val toast = LocalToast.current; val d = CtlState.data
     H("Updates", "News and versions from the owner.")
-    Glass { Row(verticalAlignment = Alignment.CenterVertically) { Cap("Status"); Spacer(Modifier.weight(1f)); Chip(if (CtlState.online) "ONLINE" else "OFFLINE", if (CtlState.online) Ok else Dim) }
+    Glass { Row(verticalAlignment = Alignment.CenterVertically) { Cap("Status"); Spacer(Modifier.weight(1f)); Chip(if (CtlState.online) "ONLINE" else if (CtlState.noFile) "NO NEWS YET" else "OFFLINE", if (CtlState.online) Ok else Dim) }
         StatRow("LATEST" to (d?.latest?.ifBlank { "Not set" } ?: "Not available"), "THIS INFO APP" to "v$VER"); StatRow("X INSTALLED" to (ver(c, "com.unoxidized.x")?.let { "v$it" } ?: "No"), "GENERATOR" to (ver(c, "com.unoxidized.gen")?.let { "v$it" } ?: "No"))
         Text("Last checked: " + (sp.getLong("ctl_at", 0L).let { if (it == 0L) "Never" else java.text.DateFormat.getDateTimeInstance().format(java.util.Date(it)) }), color = Dim, fontSize = 11.sp)
         Btn("CHECK NOW", false) { scope.launch { CtlState.data = withContext(Dispatchers.IO) { Control.fetch(sp) }; toast(if (CtlState.online) "Up to date with the server" else "Offline, showing saved info") } } }
@@ -179,7 +187,7 @@ fun ver(c: Context, pkg: String): String? = try { c.packageManager.getPackageInf
     } }, drawerState = drawer) {
         Column(Modifier.fillMaxSize().systemBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(16.dp, 10.dp), verticalAlignment = Alignment.CenterVertically) { LogoImg(painterResource(R.drawable.logo), 40); Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) { Text("NACHT X INFORMATION", fontWeight = FontWeight.Black, fontSize = 13.sp, letterSpacing = 1.sp); Text(pages[page].first.uppercase(), color = Dim, fontSize = 9.sp, letterSpacing = 2.sp) }; Chip(if (CtlState.online) "ONLINE" else "OFFLINE", if (CtlState.online) Ok else Dim) }
+                Column(Modifier.weight(1f)) { Text("NACHT X INFORMATION", fontWeight = FontWeight.Black, fontSize = 13.sp, letterSpacing = 1.sp); Text(pages[page].first.uppercase(), color = Dim, fontSize = 9.sp, letterSpacing = 2.sp) }; Chip(if (CtlState.online) "ONLINE" else if (CtlState.noFile) "NO NEWS YET" else "OFFLINE", if (CtlState.online) Ok else Dim) }
             Box(Modifier.weight(1f).swipeTabs({ if (page in 1..3) { page-- } else if (page >= 4) { page = 0 } }, { if (page < 3) { page++ } })) {
                 PageSwitch(page) { p -> PullRefresh({ CtlState.data = withContext(Dispatchers.IO) { Control.fetch(sp) }; toast(if (CtlState.online) "Updated" else "Offline") }) { Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), Arrangement.spacedBy(14.dp)) {
                     when (p) { 0 -> HomeP(c) { page = it }; 1 -> FeaturesP(); 2 -> GuideP(c); 3 -> DownloadP(c); 4 -> { H("Showcase", "Post-ready format with features and pricelist."); ShowcaseCard(VER) }; 5 -> FaqP(); 6 -> ChangeP(); 7 -> UpdatesP(c, sp); 8 -> ContactP(c); else -> SetP(sp) }

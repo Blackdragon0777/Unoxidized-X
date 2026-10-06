@@ -59,6 +59,7 @@ fun modeName(m: String) = if (m == "Battery") "battery" else "performance"
 fun bad(r: String) = r.startsWith("Error") || r.contains("Exception") || r.contains("Invalid") || r.contains("not supported") || r.contains("denied")
 fun fmt(t: Long): String = if (t <= 0) "Never" else java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT).format(java.util.Date(t))
 fun applySteps(pkg: String, sc: Float, fps: Int, mode: String): List<Step> {
+    if (android.os.Build.VERSION.SDK_INT < 31) return listOf(Step("Checking your Android version") { "Game Mode profiles need Android 12 or newer. This phone runs Android ${android.os.Build.VERSION.RELEASE}. Boost clean-up, the monitor and tools still work." })
     val f = if (sc >= .995f) "" else "downscaleFactor=${ds(sc)},"
     return listOf(
         Step("Checking the game is installed", "Installed") { if (Sh.run("pm path $pkg").contains("package:")) null else "Game not found: $pkg. Check the package in Tools." },

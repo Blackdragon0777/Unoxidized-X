@@ -31,10 +31,11 @@ object SessStore {
 object Fps {
     class Frames(val times: List<Long>, val periodNs: Long)
     private var layer: String? = null
-    fun reset() { layer = null }
-    private fun findLayer(pkg: String): String? {
-        val c = Sh.run("dumpsys SurfaceFlinger --list").lines().map { it.trim() }.filter { it.contains(pkg) }
-        return c.firstOrNull { it.startsWith("SurfaceView") } ?: c.firstOrNull { !it.contains("Background") } ?: c.firstOrNull()
+    private var tsOn = false; private var lastTotal = -1L; private var lastAt = 0L
+    fun reset() { layer = null; tsOn = false; lastTotal = -1L; lastAt = 0L }
+    fun candidates(pkg: String): List<String> {
+        val c = Sh.run("dumpsys SurfaceFlinger --list").lines().map { it.trim() }.filter { it.contains(pkg) && !it.startsWith("Error") }
+        return c.sortedBy { when { it.contains("(BLAST)") -> 0; it.startsWith("SurfaceView") -> 1; it.contains("Background") -> 9; else -> 2 } }
     }
     private fun latency(l: String): Frames? {
         val ls = Sh.run("dumpsys SurfaceFlinger --latency '" + l.replace("'", "'\\''") + "'").trim().lines()
@@ -45,7 +46,33 @@ object Fps {
     }
     fun frames(pkg: String): Frames? {
         layer?.let { val f = latency(it); if (f != null) return f }
-        layer = findLayer(pkg); return layer?.let { latency(it) }
+        for (l in candidates(pkg)) { val f = latency(l); if (f != null) { layer = l; return f } }
+        layer = null; return null
+    }
+    private fun tsTotal(pkg: String): Long? {
+        val ls = Sh.run("dumpsys SurfaceFlinger --timestats -dump").lines(); var best: Long? = null
+        for ((i, ln) in ls.withIndex()) {
+            if (ln.trim().startsWith("layerName") && ln.contains(pkg)) {
+                for (j in (i + 1)..minOf(i + 8, ls.size - 1)) { val t = ls[j].trim(); if (t.startsWith("totalFrames")) { val v = t.substringAfter("=").trim().toLongOrNull(); if (v != null && (best == null || v > best)) best = v; break } }
+            }
+        }
+        return best
+    }
+    /** (frames since the last call, nanoseconds since the last call), or null */
+    fun timeStats(pkg: String): Pair<Long, Long>? {
+        if (!tsOn) { Sh.run("dumpsys SurfaceFlinger --timestats -enable"); tsOn = true; lastTotal = -1L; return null }
+        val t = tsTotal(pkg) ?: return null; val now = System.nanoTime(); val d = lastTotal; val at = lastAt; lastTotal = t; lastAt = now
+        return if (d >= 0 && t >= d && now > at) Pair(t - d, now - at) else null
+    }
+    fun diagnose(pkg: String): String {
+        val sb = StringBuilder(); val up = Sh.run("pidof $pkg").trim().firstOrNull()?.isDigit() == true
+        sb.append("CODM running: ").append(if (up) "yes" else "NO - open CODM and play first").append("\n")
+        val c = candidates(pkg); sb.append("Game layers: ").append(c.size).append("\n")
+        c.take(3).forEach { l -> sb.append("- ").append(l.take(40)).append(": ").append(latency(l)?.let { f -> f.times.size.toString() + " frames" } ?: "no data").append("\n") }
+        Sh.run("dumpsys SurfaceFlinger --timestats -enable"); val a = tsTotal(pkg); Thread.sleep(1500); val b = tsTotal(pkg)
+        sb.append("TimeStats: ").append(if (a != null && b != null && b >= a) "about " + ((b - a) * 1000 / 1500) + " FPS" else "no data").append("\n")
+        sb.append(if (frames(pkg) != null || (a != null && b != null)) "Result: FPS is available." else if (!up) "Result: start CODM first." else "Result: your phone hides frame data from apps.")
+        return sb.toString()
     }
 }
 
@@ -73,7 +100,12 @@ object Session {
         val s = Sys.snap(c); now = System.currentTimeMillis(); tempNow = s.tempC; battNow = s.batt; if (s.charging) charged = true
         s.tempC?.let { if ((peakTemp ?: 0f) < it) peakTemp = it }; ramSum += s.ramPct; ramN++
         val f = Fps.frames(pkg)
-        if (f == null) { fpsNow = null; fpsNote = "Not available: game surface not found"; return }
+        if (f == null) {
+            val ts = Fps.timeStats(pkg)
+            if (ts != null) { val fps = (ts.first * 1e9 / ts.second).toInt(); fpsNow = fps; fpsNote = "Measured via SurfaceFlinger TimeStats"; frames += ts.first; spanNs += ts.second; minFps = minOf(minFps, fps); fpsHist.add(fps.toFloat()); if (fpsHist.size > 40) fpsHist.removeAt(0) }
+            else { fpsNow = null; fpsNote = "Warming up. If it stays empty, tap TEST FPS NOW on the Monitor tab." }
+            return
+        }
         val t = f.times.filter { it > lastT }
         val seq = if (lastT > 0) listOf(lastT) + t else t
         if (seq.size >= 3) {

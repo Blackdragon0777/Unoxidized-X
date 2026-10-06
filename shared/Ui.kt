@@ -86,8 +86,8 @@ fun Modifier.press(onClick: () -> Unit): Modifier = composed {
         val g = 56.dp.toPx(); var x = 0f; while (x < w) { drawLine(Color(0x0CA855F7), Offset(x, 0f), Offset(x, h)); x += g }
         var y = 0f; while (y < h) { drawLine(Color(0x0CA855F7), Offset(0f, y), Offset(w, y)); y += g }
     }) {
-        if (charPainter != null) Image(charPainter, null, Modifier.align(Alignment.CenterEnd).fillMaxHeight(0.66f).graphicsLayer { alpha = 0.34f }
-            .drawWithContent { drawContent(); drawRect(Brush.horizontalGradient(listOf(Bg0, Color.Transparent), startX = 0f, endX = size.width * 0.55f)) }, alignment = Alignment.CenterEnd, contentScale = ContentScale.FillHeight)
+        if (charPainter != null) Image(charPainter, null, Modifier.align(Alignment.BottomEnd).fillMaxHeight(0.9f).graphicsLayer { alpha = 0.5f }
+            .drawWithContent { drawContent(); drawRect(Brush.horizontalGradient(listOf(Bg0, Color.Transparent), startX = 0f, endX = size.width * 0.5f)); drawRect(Brush.verticalGradient(listOf(Color.Transparent, Bg0), startY = size.height * 0.75f, endY = size.height)) }, alignment = Alignment.BottomEnd, contentScale = ContentScale.FillHeight)
         content()
     }
 }

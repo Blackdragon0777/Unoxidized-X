@@ -11,7 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import kotlin.concurrent.thread
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -68,7 +70,10 @@ fun profLabel(a: AS): String = PROFS.firstOrNull { it.key == a.prof }?.name?.low
             if (Session.fpsHist.size > 1) Spark(Session.fpsHist, maxOf(a.maxHz, 60).toFloat(), Glow) }
         else { Text(if (Session.watching) "Start CODM and recording begins automatically." else "Session tracking is off.", color = Color(0xFFCCCCCC), fontSize = 13.sp)
             if (!Session.watching) Btn("START TRACKING") { a.sp.edit().putBoolean("track", true).apply(); SessionService.start(a.c) } }
-        Text("Frame data comes from Android's SurfaceFlinger through Shizuku. If your phone hides it, this says Not available.", color = Dim, fontSize = 11.sp)
+        var diag by remember { mutableStateOf("") }
+        Btn("TEST FPS NOW", false) { diag = "Testing... keep CODM open for 5 seconds."; thread { diag = Fps.diagnose(a.pkg) } }
+        if (diag.isNotEmpty()) Text(diag, fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = Color(0xFFCCCCCC))
+        Text("Frame data comes from Android's SurfaceFlinger through Shizuku.", color = Dim, fontSize = 11.sp)
     }
 }
 
