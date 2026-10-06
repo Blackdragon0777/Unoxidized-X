@@ -1,6 +1,6 @@
 plugins{id("com.android.application");id("org.jetbrains.kotlin.android")}
 android{namespace="com.unoxidized.x";compileSdk=34
-defaultConfig{applicationId="com.unoxidized.x";minSdk=23;targetSdk=34;versionCode=6;versionName="6.0"}
+defaultConfig{applicationId="com.unoxidized.x";minSdk=24;targetSdk=34;versionCode=6;versionName="6.0"}
 signingConfigs{create("ux"){storeFile=rootProject.file("app/ux.keystore");storePassword="unoxidized";keyAlias="ux";keyPassword="unoxidized"}}
 buildTypes{getByName("debug"){signingConfig=signingConfigs.getByName("ux")}}
 sourceSets.getByName("main").java.srcDir(rootProject.file("shared"))
