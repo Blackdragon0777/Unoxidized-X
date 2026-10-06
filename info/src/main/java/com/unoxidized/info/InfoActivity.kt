@@ -4,6 +4,8 @@ import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
@@ -42,15 +44,15 @@ val XF = listOf(F("🛡️", "Authorized access", "Unlocks only after Shizuku is
     F("⚡", "Boost and launch", "Cleans background apps, applies your profile, verifies it and opens CODM. Every step is a real check."), F("🛰️", "Launch detection", "Notices when CODM starts and begins a session automatically."),
     F("⏱️", "Session tracking", "Records duration, heat, battery use and real FPS and frame-time when your phone allows."), F("📊", "Before and after", "Compares your real sessions with and without a profile."),
     F("📡", "Live monitor", "CPU, RAM, battery temperature and thermal status."), F("📥", "Import and export", "Share setups as short UXP1 codes, or import a friend's."),
-    F("🧰", "Tools", "Animation speed, Do Not Disturb, diagnostics and one-tap restore defaults."), F("🔑", "Role-based keys", "Free weekly keys, plus longer keys issued by the owner."),
+    F("🧰", "Tools", "Animation speed, Do Not Disturb, diagnostics and one-tap restore defaults."), F("🔑", "Role-based keys", "Free 3-day keys, plus longer keys issued by the owner."),
     F("📣", "Remote news", "Announcements and update alerts from the owner."), F("✋", "Gestures", "Swipe between tabs, pull to refresh, swipe to delete."))
-val GF = listOf(F("🗝️", "Weekly key", "One free key per device ID every 7 days."), F("📲", "Auto device ID", "Fills in this phone's ID. Paste another to make a key for a different device."),
+val GF = listOf(F("🗝️", "3-day key", "One free key per device ID every 3 days."), F("📲", "Auto device ID", "Fills in this phone's ID. Paste another to make a key for a different device."),
     F("🚀", "Send to NACHT X", "One tap logs you in on the main app."), F("🗂️", "My Keys", "Every ID with a live countdown and progress bar."),
     F("📤", "Copy and share", "Copy a key or share it with the system share sheet."), F("✋", "Gestures", "Swipe between tabs and pull to refresh."))
 class Sec(val ic: String, val t: String, val steps: List<String>)
 val GUIDE = listOf(
     Sec("📦", "Install the apps", listOf("Open the Download tab and tap OPEN LINK. Download UnoxidizedX.zip from MediaFire.", "Unzip it. You get NACHT X, NACHT X Generator and NACHT X Information.", "Tap each .apk to install. Allow installs from this source if Android asks.", "If Play Protect warns you, tap Install anyway.")),
-    Sec("🔑", "Get your key", listOf("Open NACHT X Generator. Your device ID is already filled in.", "Tap GENERATE KEY.", "Tap SEND TO NACHT X. It logs you in by itself. (Or COPY KEY and paste it in the login screen.)", "A key lasts 7 days. After that, open the Generator and make a new one.")),
+    Sec("🔑", "Get your key", listOf("Open NACHT X Generator. Your device ID is already filled in.", "Tap GENERATE KEY.", "Tap SEND TO NACHT X. It logs you in by itself. (Or COPY KEY and paste it in the login screen.)", "A free key lasts 3 days. After that, open the Generator and make a new one.")),
     Sec("🛡️", "Set up Shizuku", listOf("Install Shizuku from the Play Store.", "Settings > About phone: tap Build number 7 times.", "Settings > Developer options: turn on Wireless debugging.", "Open Shizuku, tap Pairing, and enter the pairing code.", "Tap Start via Wireless debugging.", "Back in NACHT X tap AUTHORIZE ACCESS and press Allow.")),
     Sec("🎮", "Use NACHT X", listOf("Home > BOOST & LAUNCH CODM. Watch the popup: every line is a real check.", "Game tab: pick a profile, or fine-tune scale, FPS and mode.", "Make your own profiles with + CREATE. Swipe a profile to delete it.", "Monitor tab: live CPU, RAM and heat.", "Sessions: recorded automatically when CODM starts.")),
     Sec("📊", "Compare your results", listOf("Play one session with a profile on.", "Tools > RESTORE DEFAULTS, then play another session.", "Sessions > Compare shows your real numbers side by side.")),
@@ -71,7 +73,7 @@ val FAQ = listOf(
 
 class InfoActivity : ComponentActivity() {
     override fun onCreate(b: Bundle?) {
-        super.onCreate(b); val sp = getSharedPreferences("info", 0); UiFlags.reduceMotion = sp.getBoolean("rm", false); UiFlags.haptics = sp.getBoolean("hp", true)
+        super.onCreate(b); enableEdgeToEdge(SystemBarStyle.dark(android.graphics.Color.TRANSPARENT), SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)); val sp = getSharedPreferences("info", 0); UiFlags.reduceMotion = sp.getBoolean("rm", false); UiFlags.haptics = sp.getBoolean("hp", true)
         setContent { MaterialTheme(darkColorScheme(primary = Glow, onPrimary = Color.White, background = Bg0, surface = Bg1, onSurface = Txt, onBackground = Txt, secondaryContainer = Color(0xFF242424), onSecondaryContainer = Txt)) {
             Surface(Modifier.fillMaxSize(), color = Bg0) { ToastRoot { TechBackground(painterResource(R.drawable.bg_char)) { InfoBoot(this@InfoActivity) } } } } }
     }

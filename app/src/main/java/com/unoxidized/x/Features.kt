@@ -153,9 +153,9 @@ fun stability(r: SessionRec): String = r.jank?.let { if (it <= 3) "Good" else if
     }
 }
 @Composable fun KeyReminder(a: AS) {
-    if (a.keyRole == "F" && a.keyLeft <= 2) Glass {
+    if (a.keyRole == "F" && a.keyLeft <= 1) Glass {
         Row(verticalAlignment = Alignment.CenterVertically) { Chip("KEY EXPIRING", Warn); Spacer(Modifier.weight(1f)); Text(if (a.keyLeft <= 0) "today" else "${a.keyLeft} day(s) left", fontWeight = FontWeight.Black) }
-        Text("Open the Generator and make a new weekly key before this one ends.", color = Color(0xFFCCCCCC), fontSize = 12.sp)
+        Text("Open the Generator and make a new 3-day key before this one ends.", color = Color(0xFFCCCCCC), fontSize = 12.sp)
         Btn("OPEN NACHT X GENERATOR") { Env.openApp(a.c, "com.unoxidized.gen") }
     }
 }

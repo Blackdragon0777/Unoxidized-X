@@ -3,6 +3,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -32,7 +34,7 @@ import kotlinx.coroutines.delay
 
 class GenActivity : ComponentActivity() {
     override fun onCreate(b: Bundle?) {
-        super.onCreate(b)
+        super.onCreate(b); enableEdgeToEdge(SystemBarStyle.dark(android.graphics.Color.TRANSPARENT), SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
         val sp = getSharedPreferences("gen", 0); UiFlags.reduceMotion = sp.getBoolean("rm", false); UiFlags.haptics = sp.getBoolean("hp", true)
         setContent { MaterialTheme(darkColorScheme(primary = Glow, onPrimary = Color.White, background = Bg0, surface = Bg1, onSurface = Txt)) {
             Surface(Modifier.fillMaxSize(), color = Bg0) { ToastRoot { TechBackground(painterResource(R.drawable.bg_char)) { GenBoot(this@GenActivity) } } } } }
@@ -52,7 +54,7 @@ class GenActivity : ComponentActivity() {
         val issued = sp.getLong("i_$dev", -1L); val t = Lic.today(); val d = if (issued >= 0 && issued + Lic.DAYS > t) issued else t
         if (d == t) sp.edit().putLong("i_$dev", t).putStringSet("ids", (sp.getStringSet("ids", emptySet()) ?: emptySet()) + dev).apply()
         key = Lic.make(dev, d); day = d; good = true; tick++
-        msg = if (d == t) "New key created. It works for 7 days." else "This ID already has an active key. A new one unlocks in ${d + Lic.DAYS - t} day(s)."
+        msg = if (d == t) "New key created. It works for 3 days." else "This ID already has an active key. A new one unlocks in ${d + Lic.DAYS - t} day(s)."
         toast(if (d == t) "Key generated" else "Active key shown")
     }
     fun send(k: String) { try { c.startActivity(Intent().setClassName("com.unoxidized.x", "com.unoxidized.x.MainActivity").putExtra("ux_key", k).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)) } catch (e: Exception) { toast("Install NACHT X first") } }
@@ -61,7 +63,7 @@ class GenActivity : ComponentActivity() {
     Column(Modifier.fillMaxSize().systemBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(16.dp, 10.dp), verticalAlignment = Alignment.CenterVertically) {
             LogoImg(painterResource(R.drawable.logo), 42); Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) { Text("NACHT X GENERATOR", fontWeight = FontWeight.Black, fontSize = 15.sp, letterSpacing = 2.sp); Text("WEEKLY ACCESS KEYS", color = Dim, fontSize = 9.sp, letterSpacing = 2.sp) }
+            Column(Modifier.weight(1f)) { Text("NACHT X GENERATOR", fontWeight = FontWeight.Black, fontSize = 15.sp, letterSpacing = 2.sp); Text("3-DAY ACCESS KEYS", color = Dim, fontSize = 9.sp, letterSpacing = 2.sp) }
             val l = left(me); Chip(if (l > 0) "ACTIVE" else "NO KEY", if (l > 0) Ok else Dim)
         }
         Box(Modifier.weight(1f).swipeTabs({ if (tab > 0) { tab-- } }, { if (tab < 2) { tab++ } })) {
@@ -70,7 +72,7 @@ class GenActivity : ComponentActivity() {
                     0 -> {
                         val l = left(me)
                         AnnounceCard(); UpdateCard("6.0"); LinkedMain(c)
-                        Glass { Row(verticalAlignment = Alignment.CenterVertically) { Gauge(l / 7f, l.toInt(), "DAYS LEFT", if (l > 2) Ok else if (l > 0) Warn else Dim, 140); Spacer(Modifier.width(14.dp))
+                        Glass { Row(verticalAlignment = Alignment.CenterVertically) { Gauge(l / Lic.DAYS.toFloat(), l.toInt(), "DAYS LEFT", if (l > 1) Ok else if (l > 0) Warn else Dim, 140); Spacer(Modifier.width(14.dp))
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) { Cap("This phone"); Text(me, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                 Text(if (l > 0) "Your key is active." else "No active key. Generate one below.", color = Dim, fontSize = 12.sp) } } }
                         Glass { Cap("Device ID")
@@ -87,13 +89,13 @@ class GenActivity : ComponentActivity() {
                         if (ids.isEmpty()) Glass { Text("Nothing here yet", fontWeight = FontWeight.Bold); Text("Generate your first key on the Generate tab.", color = Dim, fontSize = 12.sp); Btn("GO TO GENERATE") { tab = 0 } }
                         ids.forEach { d -> val iss = sp.getLong("i_$d", 0L); val lf = left(d); val k = Lic.make(d, iss)
                             Glass { Row(verticalAlignment = Alignment.CenterVertically) { Text(d, Modifier.weight(1f), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold); Chip(if (lf > 0) "$lf DAYS LEFT" else "EXPIRED", if (lf > 0) Ok else Bad) }
-                                Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(Color(0xFF222222))) { Box(Modifier.fillMaxWidth(lf / 7f).fillMaxHeight().background(WhiteGrad)) }
+                                Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(Color(0xFF222222))) { Box(Modifier.fillMaxWidth(lf / Lic.DAYS.toFloat()).fillMaxHeight().background(WhiteGrad)) }
                                 Text(if (lf > 0) "Valid until ${Lic.until(iss)}" else "Expired. Generate a new key for this ID.", color = Dim, fontSize = 12.sp)
                                 if (lf > 0) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { MiniBtn("COPY") { cb.setText(AnnotatedString(k)); toast("Key copied") }; MiniBtn("SEND") { send(k) }; MiniBtn("SHARE") { share(k) } }
                                 else Btn("MAKE NEW KEY", false) { id = d; tab = 0; gen() } } } }
                     else -> { var rm by remember { mutableStateOf(UiFlags.reduceMotion) }
-                        H("Help", "How the weekly keys work.")
-                        Glass { listOf("1" to "Open NACHT X and copy the Device ID on its login screen.", "2" to "Paste it here (or use This phone) and tap Generate key.", "3" to "Tap Send to NACHT X. It logs you in automatically.", "4" to "After 7 days the key expires. Come back and generate a new one.").forEach { (n, tx) ->
+                        H("Help", "How the 3-day keys work.")
+                        Glass { listOf("1" to "Open NACHT X and copy the Device ID on its login screen.", "2" to "Paste it here (or use This phone) and tap Generate key.", "3" to "Tap Send to NACHT X. It logs you in automatically.", "4" to "After 3 days the key expires. Come back and generate a new one.").forEach { (n, tx) ->
                             Row(verticalAlignment = Alignment.Top) { Text(n, Modifier.width(26.dp), fontWeight = FontWeight.Black, color = Dim); Text(tx, color = Color(0xFFCCCCCC), fontSize = 13.sp) } } }
                         Glass { Cap("Settings"); Row(verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("Reduce motion", fontWeight = FontWeight.Bold); Text("Calmer background, shorter transitions", color = Dim, fontSize = 12.sp) }
                             Switch(rm, { rm = it; UiFlags.reduceMotion = it; sp.edit().putBoolean("rm", it).apply() }, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Glow, uncheckedThumbColor = Color.Gray, uncheckedTrackColor = Color(0xFF222222))) } }

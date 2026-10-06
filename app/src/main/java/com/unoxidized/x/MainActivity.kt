@@ -4,6 +4,8 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -46,7 +48,7 @@ val PROFS = listOf(
     Prof("perf", "PERFORMANCE", .8f, 60, "Performance", "Slightly reduced resolution and a 60 FPS cap for smoother play."),
     Prof("max", "MAX PERFORMANCE", .6f, 120, "Performance", "Lowest resolution and the highest FPS cap your screen supports. Runs warmer."))
 val GUIDE = listOf("Install both apps" to "NACHT X and NACHT X Generator come in the same zip.",
-    "Get your key" to "Open NACHT X Generator, tap Generate key, then 'Send to NACHT X'. Keys last 7 days.",
+    "Get your key" to "Open NACHT X Generator, tap Generate key, then 'Send to NACHT X'. Free keys last 3 days.",
     "Install and start Shizuku" to "Get Shizuku from the Play Store. Turn on Wireless debugging, pair in Shizuku, then Start.",
     "Authorize the app" to "Tap Authorize access and press Allow in the Shizuku popup.",
     "Pick a profile" to "Game tab > choose a profile. Every step shows a real check.",
@@ -129,7 +131,7 @@ class AS(val c: Context, val sp: SharedPreferences) {
 class MainActivity : ComponentActivity() {
     var incoming by mutableStateOf<String?>(null)
     override fun onCreate(b: Bundle?) {
-        super.onCreate(b); incoming = intent?.getStringExtra("ux_key")
+        super.onCreate(b); enableEdgeToEdge(SystemBarStyle.dark(android.graphics.Color.TRANSPARENT), SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)); incoming = intent?.getStringExtra("ux_key")
         val sp = getSharedPreferences("ux", 0); UiFlags.reduceMotion = sp.getBoolean("rm", false); UiFlags.haptics = sp.getBoolean("hp", true)
         setContent {
             MaterialTheme(darkColorScheme(primary = Glow, onPrimary = Color.White, background = Bg0, surface = Bg1, onSurface = Txt, onBackground = Txt, secondaryContainer = Color(0xFF242424), onSecondaryContainer = Txt)) {
@@ -174,7 +176,7 @@ class MainActivity : ComponentActivity() {
         }
         Spacer(Modifier.height(12.dp))
         Btn("OPEN NACHT X GENERATOR", false) { Env.openApp(c, "com.unoxidized.gen") }
-        Text("Generate your free weekly key there, then send it here.", color = Dim, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+        Text("Generate your free 3-day key there, then send it here.", color = Dim, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
         Watermark()
     }
 }
@@ -376,7 +378,7 @@ class MainActivity : ComponentActivity() {
     Glass { listOf("Shizuku keeps stopping" to "Restart it after every reboot: Shizuku > Start via Wireless debugging.",
         "Authorize popup never appears" to "Open Shizuku > Authorized apps and switch NACHT X on.",
         "Profile not kept by Android" to "Some phones or CODM versions reject Game Mode profiles. The popup shows the real reason.",
-        "Key expired" to "Open NACHT X Generator and make a new weekly key.").forEach { (q, ans) -> Text(q, fontWeight = FontWeight.Bold); Text(ans, color = Dim, fontSize = 12.sp) } }
+        "Key expired" to "Open NACHT X Generator and make a new 3-day key.").forEach { (q, ans) -> Text(q, fontWeight = FontWeight.Bold); Text(ans, color = Dim, fontSize = 12.sp) } }
 }
 
 @Composable fun SettingsPage(a: AS) {

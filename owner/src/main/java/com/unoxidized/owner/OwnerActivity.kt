@@ -5,6 +5,8 @@ import android.os.Bundle
 import android.util.Base64
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -77,7 +79,7 @@ object OLog {
 class OwnerActivity : ComponentActivity() {
     var unlocked by mutableStateOf(false); private var bgAt = 0L
     override fun onCreate(b: Bundle?) {
-        super.onCreate(b); window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        super.onCreate(b); enableEdgeToEdge(SystemBarStyle.dark(android.graphics.Color.TRANSPARENT), SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)); window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         val sp = getSharedPreferences("own", 0); UiFlags.reduceMotion = sp.getBoolean("rm", false); UiFlags.haptics = sp.getBoolean("hp", true)
         setContent { MaterialTheme(darkColorScheme(primary = Glow, onPrimary = Color.White, background = Bg0, surface = Bg1, onSurface = Txt, onBackground = Txt, secondaryContainer = Color(0xFF242424), onSecondaryContainer = Txt)) {
             Surface(Modifier.fillMaxSize(), color = Bg0) { ToastRoot { TechBackground(painterResource(R.drawable.bg_char)) { OwnerBoot(this@OwnerActivity) } } } } }
@@ -184,7 +186,7 @@ class OS(val act: OwnerActivity, val sp: SharedPreferences) {
         if (insp.isNotBlank()) { val i = Lic.inspect(insp)
             Glass { if (i == null) { Chip("NOT A KEY", Bad); Text("That text isn't an Unoxidized key.", color = Dim, fontSize = 12.sp) } else {
                 Row(verticalAlignment = Alignment.CenterVertically) { Cap("Result"); Spacer(Modifier.weight(1f)); Chip(if (!i.sigOk) "FORGED" else if (i.expired) "EXPIRED" else "VALID", if (!i.sigOk) Bad else if (i.expired) Warn else Ok) }
-                StatRow("FORMAT" to (if (i.ver == 2) "Owner-signed (v2)" else "Weekly (v1)"), "ROLE" to Lic.roleName(i.role))
+                StatRow("FORMAT" to (if (i.ver == 2) "Owner-signed (v2)" else "Free (v1)"), "ROLE" to Lic.roleName(i.role))
                 StatRow("DEVICE" to i.dev, "THIS PHONE" to (if (i.dev == os.me) "Yes" else "No"))
                 StatRow("ISSUED" to Lic.dateText(i.day), "EXPIRES" to i.untilText) } } }
     }

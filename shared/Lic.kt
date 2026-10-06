@@ -8,10 +8,10 @@ import java.security.spec.X509EncodedKeySpec
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
-/** v1 (free, 7 days, made by the Generator): UX-<DEVICEID>-<DAY>-<TAG>
+/** v1 (free, 3 days, made by the Generator): UX-<DEVICEID>-<DAY>-<TAG>
  *  v2 (made only by the Owner app, signed): UX2-<DEVICEID>-<DAY>-<DURATION>-<ROLE>.<SIGNATURE>  (duration 0 = lifetime) */
 object Lic {
-    const val DAYS = 7
+    const val DAYS = 3
     private const val PUB = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEtNzJpC7rdxlSDdqPeaOY1NsgnKG4LN+cWm4HvRTAsBIvOQyKLokT0am5N6/MEs42WH2ggTNOYgqTasFrL1AmWQ=="
     private fun secret() = "UnoxidizedX|" + "@UnoxidizedX|" + "wk-key|v3|" + "c41f7a9e02"
     fun deviceId(c: Context) = Settings.Secure.getString(c.contentResolver, Settings.Secure.ANDROID_ID).take(12).uppercase()

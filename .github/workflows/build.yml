@@ -11,22 +11,62 @@ jobs:
         with: {distribution: temurin, java-version: 17}
       - uses: gradle/actions/setup-gradle@v4
         with: {gradle-version: "8.7"}
-      - run: gradle assembleDebug
-      - run: |
-          mkdir -p out/public out/private
-          cp app/build/outputs/apk/debug/app-debug.apk "out/public/NACHT X.apk"
-          cp generator/build/outputs/apk/debug/generator-debug.apk "out/public/NACHT X Generator.apk"
-          cp info/build/outputs/apk/debug/info-debug.apk "out/public/NACHT X Information.apk"
-          cp owner/build/outputs/apk/debug/owner-debug.apk "out/private/NACHT X Owner.apk"
+
+      - name: Show project modules
+        run: |
+          echo "--- settings.gradle.kts"; cat settings.gradle.kts
+          for m in app generator owner info; do test -f "$m/build.gradle.kts" && echo "module OK: $m" || { echo "::error::Module folder missing: $m"; exit 1; }; done
+
+      - name: Build all 4 apps (each module explicitly)
+        run: gradle :app:assembleDebug :generator:assembleDebug :owner:assembleDebug :info:assembleDebug --stacktrace
+
+      - name: Collect and verify the 4 APKs
+        run: |
+          mkdir -p out
+          declare -A MAP=(
+            ["app/build/outputs/apk/debug/app-debug.apk"]="Nacht X.apk"
+            ["generator/build/outputs/apk/debug/generator-debug.apk"]="Nacht X Generator.apk"
+            ["owner/build/outputs/apk/debug/owner-debug.apk"]="Nacht X Owner.apk"
+            ["info/build/outputs/apk/debug/info-debug.apk"]="Nacht X Information.apk"
+          )
+          bad=0
+          for src in "${!MAP[@]}"; do
+            name="${MAP[$src]}"
+            if [ ! -s "$src" ]; then echo "::error::MISSING APK: $name (Gradle did not produce $src)"; bad=1; continue; fi
+            if ! unzip -tq "$src" >/dev/null 2>&1; then echo "::error::CORRUPT APK: $name ($src)"; bad=1; continue; fi
+            cp "$src" "out/$name"
+          done
+          for name in "Nacht X.apk" "Nacht X Generator.apk" "Nacht X Owner.apk" "Nacht X Information.apk"; do
+            [ -s "out/$name" ] || { echo "::error::FINAL CHECK FAILED, missing: $name"; bad=1; }
+          done
+          if [ "$bad" != "0" ]; then echo "::error::At least one of the 4 required APKs is missing. Failing the build."; exit 1; fi
+          {
+            echo "## Nacht X: all 4 APKs were built"
+            echo "| App | File | Size |"; echo "|---|---|---|"
+            for name in "Nacht X.apk" "Nacht X Generator.apk" "Nacht X Owner.apk" "Nacht X Information.apk"; do echo "| ${name%.apk} | $name | $(du -h "out/$name" | cut -f1) |"; done
+          } >> "$GITHUB_STEP_SUMMARY"
+          ls -la out
+
+      - if: github.event.repository.private == false
+        run: echo "::warning::This repository is PUBLIC. The Owner APK and source contain your Owner signing key. Build the apps in a PRIVATE repo."
+
       - uses: actions/upload-artifact@v4
-        with: {name: UnoxidizedX, path: out/public, compression-level: 0}
-      - if: github.event.repository.private == true
-        uses: actions/upload-artifact@v4
-        with: {name: UnoxidizedOwner-PRIVATE, path: out/private, compression-level: 0}
-      - name: Publish release with direct APK files
+        with: {name: "Nacht X", path: "out/Nacht X.apk", compression-level: 0, if-no-files-found: error}
+      - uses: actions/upload-artifact@v4
+        with: {name: "Nacht X Generator", path: "out/Nacht X Generator.apk", compression-level: 0, if-no-files-found: error}
+      - uses: actions/upload-artifact@v4
+        with: {name: "Nacht X Owner", path: "out/Nacht X Owner.apk", compression-level: 0, if-no-files-found: error}
+      - uses: actions/upload-artifact@v4
+        with: {name: "Nacht X Information", path: "out/Nacht X Information.apk", compression-level: 0, if-no-files-found: error}
+      - uses: actions/upload-artifact@v4
+        with: {name: "Nacht-X-4-APKs", path: "out/*.apk", compression-level: 0, if-no-files-found: error}
+
+      - name: Publish direct-download release (Owner APK only from a private repo)
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          FILES=(out/public/*.apk)
-          if [ "${{ github.event.repository.private }}" = "true" ]; then FILES+=(out/private/*.apk); fi
-          gh release create "build-${{ github.run_number }}" "${FILES[@]}" --title "NACHT X build ${{ github.run_number }}" --notes "NACHT X, Generator and Information are for sharing. The Owner APK is only published from a PRIVATE repo. Never share it."
+          TAG="build-${{ github.run_number }}-${{ github.run_attempt }}"
+          FILES=("out/Nacht X.apk" "out/Nacht X Generator.apk" "out/Nacht X Information.apk")
+          if [ "${{ github.event.repository.private }}" = "true" ]; then FILES+=("out/Nacht X Owner.apk"); fi
+          gh release create "$TAG" "${FILES[@]}" --title "Nacht X build ${{ github.run_number }}" --notes "Direct APK downloads. The Owner APK is only attached from a private repo."
