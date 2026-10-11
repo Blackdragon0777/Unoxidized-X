@@ -4,7 +4,7 @@
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 <permission android:name="com.unoxidized.permission.SYNC" android:protectionLevel="signature"/>
-<queries><package android:name="moe.shizuku.privileged.api"/><package android:name="com.unoxidized.gen"/><package android:name="com.unoxidized.info"/></queries>
+<queries><intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent><package android:name="moe.shizuku.privileged.api"/><package android:name="com.unoxidized.gen"/><package android:name="com.unoxidized.info"/></queries>
 <application android:label="NACHT X" android:icon="@mipmap/ic_launcher" android:theme="@style/Theme.NachtX">
 <provider android:name="rikka.shizuku.ShizukuProvider" android:authorities="${applicationId}.shizuku" android:enabled="true" android:exported="true" android:multiprocess="false" android:permission="android.permission.INTERACT_ACROSS_USERS_FULL"/>
 <provider android:name=".MainSync" android:authorities="com.unoxidized.x.sync" android:exported="true" android:permission="com.unoxidized.permission.SYNC"/>

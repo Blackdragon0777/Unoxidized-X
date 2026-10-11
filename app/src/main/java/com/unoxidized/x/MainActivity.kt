@@ -101,6 +101,7 @@ class AS(val c: Context, val sp: SharedPreferences) {
     var scale by mutableStateOf(sp.getFloat("sc", 0.8f)); var fps by mutableStateOf(clampFps(sp.getInt("fps", 60), maxHz))
     var mode by mutableStateOf(sp.getString("md", "Performance") ?: "Performance"); var hz by mutableStateOf(sp.getInt("hz", maxHz))
     var prof by mutableStateOf(sp.getString("prof", "") ?: ""); var snap by mutableStateOf(Sys.snap(c)); var log by mutableStateOf("Ready.")
+    var picker by mutableStateOf(false); var confirmRevert by mutableStateOf(false); var perfMode by mutableStateOf(sp.getString("perfMode", "Performance") ?: "Performance"); var touchOpt by mutableStateOf(sp.getBoolean("touchOpt", false)); var lockHz by mutableStateOf(sp.getBoolean("lockHz", false)); var angle by mutableStateOf(sp.getString("angle", "Default") ?: "Default"); var eng by mutableStateOf(EngInfo())
     var keyLeft by mutableStateOf(99999L); var keyRole by mutableStateOf("F"); var tick by mutableStateOf(0); val mine = mutableStateListOf<MyProf>().also { it.addAll(ProfStore.load(sp)) }; var editing by mutableStateOf<MyProf?>(null)
     fun saveMine() { ProfStore.save(sp, mine) }
     fun applyMine(p: MyProf) { scale = p.sc; fps = clampFps(p.fps, maxHz); mode = p.mode; prof = "my:" + p.id; apply("Profile " + p.name) }
@@ -246,13 +247,12 @@ class MainActivity : ComponentActivity() {
             Chip(if (ready) "SHIZUKU CONNECTED" else "PERMISSION REQUIRED", if (ready) Ok else Bad)
             Text("Based on RAM, heat, battery and storage. It is not an FPS prediction.", color = Dim, fontSize = 11.sp) } } }
     if (Session.active) Glass { Row(verticalAlignment = Alignment.CenterVertically) { Chip("CODM SESSION LIVE", Ok); Spacer(Modifier.weight(1f)); Text(Session.fpsNow?.let { "$it FPS" } ?: "Measuring", fontWeight = FontWeight.Black) } }
-    Btn("BOOST & LAUNCH CODM") { a.boost(true) }
-    Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp)) { Tile(Modifier.weight(1f), "⚡", "BOOST", "Optimize, don't launch") { a.boost(false) }; Tile(Modifier.weight(1f), "🎮", "CODM PROFILE", "Choose a profile") { go(1) } }
-    Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp)) { Tile(Modifier.weight(1f), "📊", "LIVE MONITOR", "CPU, RAM, heat") { go(2) }; Tile(Modifier.weight(1f), "🧰", "TOOLS", "Info and restore") { go(3) } }
-    Cap("Device status")
-    StatRow("RAM" to "${s.ramPct}%", "BATTERY" to (if (s.batt < 0) "Not available" else "${s.batt}%"))
-    StatRow("TEMP" to (s.tempC?.let { "%.1f°C".format(java.util.Locale.US, it) } ?: "Not available"), "STORAGE" to "${s.storPct}%")
-    StatRow("SCREEN" to "${s.hz} Hz", "PROFILE" to (profLabel(a)))
+    TargetGameCard(a)
+    AutoBoostCard(a)
+    Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp)) { Tile(Modifier.weight(1f), "⚡", "BOOST", "Optimize, don't launch") { a.boostPlus(false) }; Tile(Modifier.weight(1f), "🎮", "CODM PROFILE", "Choose a profile") { go(1) } }
+    Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp)) { Tile(Modifier.weight(1f), "📊", "LIVE MONITOR", "CPU, RAM, heat") { go(3) }; Tile(Modifier.weight(1f), "🧰", "TOOLS", "Info and restore") { go(4) } }
+    EngineCards(a)
+    RecoveryCard(a)
     Text("Last optimization: ${fmt(a.sp.getLong("lastopt", 0L))}", color = Dim, fontSize = 12.sp)
 }
 
@@ -411,10 +411,11 @@ class MainActivity : ComponentActivity() {
 
 @Composable fun Main(c: Context, sp: SharedPreferences, key: String, logout: () -> Unit) {
     val a = remember { AS(c, sp) }; val drawer = rememberDrawerState(DrawerValue.Closed); val scope = rememberCoroutineScope()
-    val pages = listOf("Home" to "🏠", "Game" to "🎮", "Monitor" to "📊", "Tools" to "🧰", "Sessions" to "⏱️", "Import" to "📥", "History" to "🕘", "Guide" to "📖", "Settings" to "⚙️", "Account" to "👤")
+    val pages = listOf("Home" to "🏠", "Game" to "🎮", "Tuner" to "🎚️", "Monitor" to "📊", "Tools" to "🧰", "Sessions" to "⏱️", "Import" to "📥", "History" to "🕘", "Guide" to "📖", "Settings" to "⚙️", "Account" to "👤")
     var page by remember { mutableStateOf(0) }
     LaunchedEffect(Unit) { while (true) { a.snap = Sys.snap(c); delay(2500) } }
-    LaunchedEffect(page) { if (page == 2) while (true) {
+    LaunchedEffect(Unit) { a.eng = withContext(Dispatchers.IO) { Eng.read(Eng.static(a.eng)) }; while (true) { delay(6000); a.eng = withContext(Dispatchers.IO) { Eng.read(a.eng) } } }
+    LaunchedEffect(page) { if (page == 3) while (true) {
         val s = Sys.snap(c); a.snap = s; val m = a.mon; m.now = System.currentTimeMillis(); m.add(m.ram, s.ramPct.toFloat())
         s.tempC?.let { m.add(m.tmp, it); if ((m.peak ?: 0f) < it) m.peak = it }
         val cpu = withContext(Dispatchers.IO) { Sys.cpu() }; m.cpuTries++; if (cpu != null) { m.cpuNow = cpu; m.add(m.cpu, cpu.toFloat()) }
@@ -422,11 +423,11 @@ class MainActivity : ComponentActivity() {
     BackHandler(enabled = page != 0) { page = 0 }
     LaunchedEffect(key) { val r = Lic.check(Lic.deviceId(c), key); a.keyLeft = r.left; a.keyRole = r.role }
     val toast = LocalToast.current
-    val refresh: suspend (Int) -> Unit = { p -> a.snap = Sys.snap(c); a.tick++; if (p == 2) { a.mon.cpu.clear(); a.mon.ram.clear(); a.mon.tmp.clear(); a.mon.cpuTries = 0 }; delay(500); toast("Updated") }
+    val refresh: suspend (Int) -> Unit = { p -> a.snap = Sys.snap(c); a.tick++; if (p == 3) { a.mon.cpu.clear(); a.mon.ram.clear(); a.mon.tmp.clear(); a.mon.cpuTries = 0 }; delay(500); toast("Updated") }
     val notif = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     LaunchedEffect(Unit) { if (sp.getBoolean("track", true)) { if (android.os.Build.VERSION.SDK_INT >= 33 && c.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) notif.launch(android.Manifest.permission.POST_NOTIFICATIONS); SessionService.start(c) } }
     val go: (Int) -> Unit = { i -> page = i }
-    TaskDialog(a); ProfEditor(a)
+    TaskDialog(a); ProfEditor(a); GamePicker(a); RevertDialog(a)
     ModalNavigationDrawer({ ModalDrawerSheet(drawerContainerColor = Color(0xFF080808)) {
         Row(Modifier.padding(24.dp), verticalAlignment = Alignment.CenterVertically) { LogoImg(painterResource(R.drawable.logo), 52); Spacer(Modifier.width(12.dp))
             Column { Text("NACHT X", fontWeight = FontWeight.Black, fontSize = 18.sp, letterSpacing = 3.sp); Text("SHADOW SYSTEM", color = Dim, fontSize = 9.sp, letterSpacing = 1.5.sp) } }
@@ -441,11 +442,11 @@ class MainActivity : ComponentActivity() {
             }
             Box(Modifier.weight(1f).swipeTabs({ if (page in 1..3) { page-- } else if (page >= 4) { page = 0 } }, { if (page < 3) { page++ } })) {
                 PageSwitch(page) { p -> PullRefresh({ refresh(p) }) { Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), Arrangement.spacedBy(14.dp)) {
-                    when (p) { 0 -> HomePage(a, go); 1 -> GamePage(a); 2 -> MonitorPage(a); 3 -> ToolsPage(a); 4 -> SessionsPage(a); 5 -> ImportPage(a); 6 -> HistPage(a); 7 -> GuidePage(a); 8 -> SettingsPage(a); else -> AccountPage(a, key, logout) }
+                    when (p) { 0 -> HomePage(a, go); 1 -> GamePage(a); 2 -> TunerPage(a); 3 -> MonitorPage(a); 4 -> ToolsPage(a); 5 -> SessionsPage(a); 6 -> ImportPage(a); 7 -> HistPage(a); 8 -> GuidePage(a); 9 -> SettingsPage(a); else -> AccountPage(a, key, logout) }
                     Spacer(Modifier.height(8.dp)) } } }
             }
             Box(Modifier.fillMaxWidth(), Alignment.Center) { Watermark() }
-            NavBar(listOf("🏠" to "HOME", "🎮" to "GAME", "📊" to "MONITOR", "🧰" to "TOOLS", "☰" to "MORE"), if (page < 4) page else 4) { i -> if (i == 4) { scope.launch { drawer.open() } } else { page = i } }
+            NavBar(listOf("🏠" to "HOME", "🎮" to "GAME", "🎚️" to "TUNER", "📊" to "MONITOR", "☰" to "MORE"), if (page < 4) page else 4) { i -> if (i == 4) { scope.launch { drawer.open() } } else { page = i } }
         }
     }
 }
