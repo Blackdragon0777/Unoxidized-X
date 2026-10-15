@@ -4,7 +4,7 @@ permissions:
   contents: write
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       # All secrets live in GitHub > Settings > Secrets and variables > Actions. They are masked in logs and never stored in the repo.
       KS_B64: ${{ secrets.UX_KEYSTORE_B64 }}
@@ -27,9 +27,15 @@ jobs:
       - name: Restore signing key from secrets
         run: |
           if [ -n "$KS_B64" ]; then
-            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/ux.keystore"
-            echo "UX_KEYSTORE=$RUNNER_TEMP/ux.keystore" >> "$GITHUB_ENV"
-            echo "Signing both apps with your secret keystore."
+            CLEAN=$(printf '%s' "$KS_B64" | tr -d '[:space:]')
+            BAD=$(printf '%s' "$CLEAN" | tr -d 'A-Za-z0-9+/=' | wc -c)
+            echo "Keystore secret: ${#CLEAN} characters after removing spaces and line breaks, $BAD invalid characters. A correct value is about 3416 characters with 0 invalid."
+            if [ "$BAD" = "0" ] && printf '%s' "$CLEAN" | base64 -d > "$RUNNER_TEMP/ux.keystore" 2>/dev/null && [ -s "$RUNNER_TEMP/ux.keystore" ] && keytool -list -keystore "$RUNNER_TEMP/ux.keystore" -storepass "$UX_STORE_PASS" >/dev/null 2>&1; then
+              echo "UX_KEYSTORE=$RUNNER_TEMP/ux.keystore" >> "$GITHUB_ENV"
+              echo "Signing both apps with your secret keystore."
+            else
+              echo "::warning::UX_KEYSTORE_B64 could not be used (it is not clean base64, or UX_STORE_PASS does not open it). Building with a temporary debug key instead. Re-add the secret from secrets_to_add.txt."
+            fi
           else
             echo "::warning::Secret UX_KEYSTORE_B64 is missing. Building with a temporary debug key (both apps build, but they will not share your signature)."
           fi
