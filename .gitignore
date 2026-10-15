@@ -1,0 +1,12 @@
+build/
+.gradle/
+local.properties
+private.pem
+*.iml
+.idea/
+
+*.keystore
+*.jks
+secrets_to_add.txt
+private.pem
+local.properties

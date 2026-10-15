@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<uses-permission android:name="android.permission.INTERNET"/>
+<permission android:name="com.unoxidized.permission.SYNC" android:protectionLevel="signature"/>
+<uses-permission android:name="com.unoxidized.permission.SYNC"/>
+<queries><package android:name="com.unoxidized.x"/><package android:name="com.unoxidized.gen"/></queries>
+<application android:label="NACHT X Owner" android:icon="@mipmap/ic_launcher" android:theme="@style/Theme.NachtX">
+<activity android:name=".OwnerActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
+</application></manifest>

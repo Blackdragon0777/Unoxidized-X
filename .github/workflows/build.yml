@@ -1,0 +1,83 @@
+name: Build NACHT X (2 apps)
+on: [workflow_dispatch, push]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # All secrets live in GitHub > Settings > Secrets and variables > Actions. They are masked in logs and never stored in the repo.
+      KS_B64: ${{ secrets.UX_KEYSTORE_B64 }}
+      UX_STORE_PASS: ${{ secrets.UX_STORE_PASS }}
+      UX_KEY_PASS: ${{ secrets.UX_KEY_PASS }}
+      UX_KEY_ALIAS: ${{ secrets.UX_KEY_ALIAS }}
+      OWNER_PRIV: ${{ secrets.OWNER_PRIV }}
+      OWNER_HASH: ${{ secrets.OWNER_HASH }}
+      OWNER_ZIP_PASS: ${{ secrets.OWNER_ZIP_PASS }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: 17}
+      - uses: gradle/actions/setup-gradle@v4
+        with: {gradle-version: "8.7"}
+      - name: Show project modules
+        run: |
+          cat settings.gradle.kts
+          for m in app owner; do test -f "$m/build.gradle.kts" && echo "module OK: $m" || { echo "::error::Module folder missing: $m"; exit 1; }; done
+      - name: Restore signing key from secrets
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/ux.keystore"
+            echo "UX_KEYSTORE=$RUNNER_TEMP/ux.keystore" >> "$GITHUB_ENV"
+            echo "Signing both apps with your secret keystore."
+          else
+            echo "::warning::Secret UX_KEYSTORE_B64 is missing. Building with a temporary debug key (both apps build, but they will not share your signature)."
+          fi
+          if [ -z "$OWNER_PRIV" ] || [ -z "$OWNER_HASH" ]; then
+            echo "::warning::Secret OWNER_PRIV or OWNER_HASH is missing. The Owner app will build but cannot unlock or sign keys."
+          fi
+      - name: Build both apps
+        run: gradle :app:assembleDebug :owner:assembleDebug --stacktrace
+      - name: Collect and verify both APKs
+        run: |
+          mkdir -p out
+          declare -A MAP=(
+            ["app/build/outputs/apk/debug/app-debug.apk"]="Nacht X.apk"
+            ["owner/build/outputs/apk/debug/owner-debug.apk"]="Nacht X Owner.apk"
+          )
+          bad=0
+          for src in "${!MAP[@]}"; do
+            name="${MAP[$src]}"
+            if [ ! -s "$src" ]; then echo "::error::MISSING APK: $name (Gradle did not produce $src)"; bad=1; continue; fi
+            if ! unzip -tq "$src" >/dev/null 2>&1; then echo "::error::CORRUPT APK: $name"; bad=1; continue; fi
+            cp "$src" "out/$name"
+          done
+          if [ "$bad" != "0" ]; then echo "::error::A required APK is missing. Failing the build."; exit 1; fi
+          { echo "## NACHT X: both APKs were built"; echo "| App | File | Size |"; echo "|---|---|---|"; for name in "Nacht X.apk" "Nacht X Owner.apk"; do echo "| ${name%.apk} | $name | $(du -h "out/$name" | cut -f1) |"; done; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Protect the Owner APK (it contains your signing key)
+        run: |
+          cd out
+          PRIVATE="${{ github.event.repository.private }}"
+          if [ -n "$OWNER_PRIV" ] && [ -z "$OWNER_ZIP_PASS" ] && [ "$PRIVATE" != "true" ]; then
+            echo "::error::This repo is public and OWNER_PRIV is set, but secret OWNER_ZIP_PASS is missing. Refusing to publish an unprotected Owner APK. Add OWNER_ZIP_PASS and re-run."
+            exit 1
+          fi
+          if [ -n "$OWNER_ZIP_PASS" ]; then
+            (7z a -tzip -mem=AES256 -p"$OWNER_ZIP_PASS" "Nacht X Owner (encrypted).zip" "Nacht X Owner.apk" >/dev/null 2>&1) || zip -q -P "$OWNER_ZIP_PASS" "Nacht X Owner (encrypted).zip" "Nacht X Owner.apk"
+            rm -f "Nacht X Owner.apk"
+            echo "OWNER_FILE=out/Nacht X Owner (encrypted).zip" >> "$GITHUB_ENV"
+            echo "Owner APK is password-protected. Unzip it with your OWNER_ZIP_PASS."
+          else
+            echo "OWNER_FILE=out/Nacht X Owner.apk" >> "$GITHUB_ENV"
+          fi
+      - uses: actions/upload-artifact@v4
+        with: {name: "Nacht-X-APK", path: "out/Nacht X.apk", compression-level: 0, if-no-files-found: error}
+      - uses: actions/upload-artifact@v4
+        with: {name: "Nacht-X-Owner-APK", path: "${{ env.OWNER_FILE }}", compression-level: 0, if-no-files-found: error}
+      - name: Publish direct-download release (main app only, never the Owner app)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="build-${{ github.run_number }}-${{ github.run_attempt }}"
+          gh release create "$TAG" "out/Nacht X.apk" --title "NACHT X build ${{ github.run_number }}" --notes "Main app only. The Owner app is available as a password-protected artifact in the Actions run."

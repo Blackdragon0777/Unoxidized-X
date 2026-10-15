@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0B0F19"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="24dp">
+    <EditText
+        android:id="@+id/etOwnerSecret"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Enter Owner Secret"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#888888" />
+    <Button
+        android:id="@+id/btnOwnerLogin"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Access Owner Panel" />
+</LinearLayout>

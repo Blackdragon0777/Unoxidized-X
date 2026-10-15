@@ -1,0 +1,43 @@
+rules_version = '2';
+// NACHT X Firestore security rules. These run on Google's servers: a modified APK cannot bypass them.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    // An owner is any account whose UID has a document in /admins (created by you in the Firebase console, never by the app).
+    function isOwner() { return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+
+    match /admins/{id} {
+      allow read: if signedIn() && request.auth.uid == id;
+      allow write: if false;
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner() || (signedIn() && request.auth.uid == uid);
+      // A user can create ONLY their own pending Free profile with no key. They cannot promote themselves.
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.role == 'F'
+        && request.resource.data.key == ''
+        && request.resource.data.keys().hasOnly(['name', 'gmail', 'telegram', 'device', 'status', 'role', 'key', 'createdAt']);
+      // A user may only edit their contact details. status, role and key are owner-only.
+      allow update: if isOwner() || (signedIn() && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'telegram', 'device']));
+      allow delete: if isOwner();
+    }
+
+    // Document id = the GCash reference number, so the same reference can never be submitted twice.
+    match /payments/{ref} {
+      allow read: if isOwner() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.keys().hasOnly(['uid', 'device', 'plan', 'amount', 'date', 'who', 'status', 'createdAt']);
+      allow update, delete: if isOwner();
+    }
+
+    // Used references: an approved payment writes one, and the write fails if it already exists.
+    match /refs/{ref} {
+      allow read, write: if isOwner();
+    }
+  }
+}

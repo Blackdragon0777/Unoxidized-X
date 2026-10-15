@@ -1,0 +1,44 @@
+name: Build Nacht X & Owner APKs
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.2'
+
+      - name: Build Nacht X (Main APK)
+        run: gradle :app:assembleRelease --no-daemon
+
+      - name: Build Nacht X Owner (Owner APK)
+        run: gradle :owner:assembleRelease --no-daemon
+
+      - name: Upload Nacht X Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-X-APK
+          path: app/build/outputs/apk/release/app-release-unsigned.apk
+
+      - name: Upload Nacht X Owner Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nacht-X-Owner-APK
+          path: owner/build/outputs/apk/release/owner-release-unsigned.apk
