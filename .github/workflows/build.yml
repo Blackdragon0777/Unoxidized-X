@@ -43,7 +43,16 @@ jobs:
             echo "::warning::Secret OWNER_PRIV or OWNER_HASH is missing. The Owner app will build but cannot unlock or sign keys."
           fi
       - name: Build both apps
-        run: gradle :app:assembleDebug :owner:assembleDebug --stacktrace
+        run: |
+          set -o pipefail
+          if ! gradle :app:assembleDebug :owner:assembleDebug 2>&1 | tee build.log; then
+            echo "## Build failed. First compiler/resource errors:" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            grep -E "^e: |AAPT|error:|Execution failed|Unresolved|Could not resolve" build.log | head -40 >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            grep -E "^e: " build.log | head -20 | while IFS= read -r l; do echo "::error::$l"; done
+            exit 1
+          fi
       - name: Collect and verify both APKs
         run: |
           mkdir -p out
