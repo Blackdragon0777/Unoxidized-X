@@ -68,27 +68,35 @@ jobs:
             cp "$src" "out/$name"
           done
           if [ "$bad" != "0" ]; then echo "::error::A required APK is missing. Failing the build."; exit 1; fi
-          { echo "## NACHT X: both APKs were built"; echo "| App | File | Size |"; echo "|---|---|---|"; for name in "Nacht X.apk" "Nacht X Owner.apk"; do echo "| ${name%.apk} | $name | $(du -h "out/$name" | cut -f1) |"; done; } >> "$GITHUB_STEP_SUMMARY"
+          { echo "## NACHT X: both APKs were built"; echo "| App | File | Size |"; echo "|---|---|---|"; for name in "Nacht X.apk" "Nacht X Owner.apk"; do echo "| ${name%.apk} | $name | $(du -h "out/$name" | cut -f1) |"; done; echo; echo "SHA-256 (to check a download):"; echo '```'; (cd out && sha256sum *.apk); echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - name: Protect the Owner APK (it contains your signing key)
         run: |
           cd out
           PRIVATE="${{ github.event.repository.private }}"
-          if [ -n "$OWNER_PRIV" ] && [ -z "$OWNER_ZIP_PASS" ] && [ "$PRIVATE" != "true" ]; then
+          # Use only the first line of the secret and drop spaces/newlines, so a pasted note or trailing line break cannot change the password.
+          PASS=$(printf '%s' "$OWNER_ZIP_PASS" | head -n1 | tr -d '[:space:]')
+          echo "OWNER_ZIP_PASS secret is ${#OWNER_ZIP_PASS} characters; the zip password used is ${#PASS} characters (your generated one is 24)."
+          echo "::notice::Owner zip password length used: ${#PASS} (secret was ${#OWNER_ZIP_PASS} characters)"
+          if [ -n "$OWNER_PRIV" ] && [ -z "$PASS" ] && [ "$PRIVATE" != "true" ]; then
             echo "::error::This repo is public and OWNER_PRIV is set, but secret OWNER_ZIP_PASS is missing. Refusing to publish an unprotected Owner APK. Add OWNER_ZIP_PASS and re-run."
             exit 1
           fi
-          if [ -n "$OWNER_ZIP_PASS" ]; then
-            (7z a -tzip -mem=AES256 -p"$OWNER_ZIP_PASS" "Nacht X Owner (encrypted).zip" "Nacht X Owner.apk" >/dev/null 2>&1) || zip -q -P "$OWNER_ZIP_PASS" "Nacht X Owner (encrypted).zip" "Nacht X Owner.apk"
+          if [ -n "$PASS" ]; then
+            if (7z a -tzip -mem=AES256 -p"$PASS" "Nacht X Owner (encrypted).zip" "Nacht X Owner.apk" >/dev/null 2>&1); then
+              echo "Created an AES-256 encrypted zip."
+            else
+              zip -q -P "$PASS" "Nacht X Owner (encrypted).zip" "Nacht X Owner.apk"
+              echo "7z not available: created a standard password zip instead."
+            fi
             rm -f "Nacht X Owner.apk"
             echo "OWNER_FILE=out/Nacht X Owner (encrypted).zip" >> "$GITHUB_ENV"
-            echo "Owner APK is password-protected. Unzip it with your OWNER_ZIP_PASS."
           else
             echo "OWNER_FILE=out/Nacht X Owner.apk" >> "$GITHUB_ENV"
           fi
       - uses: actions/upload-artifact@v4
-        with: {name: "Nacht-X-APK", path: "out/Nacht X.apk", compression-level: 0, if-no-files-found: error}
+        with: {name: "Nacht-X-APK", path: "out/Nacht X.apk", if-no-files-found: error}
       - uses: actions/upload-artifact@v4
-        with: {name: "Nacht-X-Owner-APK", path: "${{ env.OWNER_FILE }}", compression-level: 0, if-no-files-found: error}
+        with: {name: "Nacht-X-Owner-APK", path: "${{ env.OWNER_FILE }}", if-no-files-found: error}
       - name: Publish direct-download release (main app only, never the Owner app)
         continue-on-error: true
         env:

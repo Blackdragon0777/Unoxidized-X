@@ -114,24 +114,7 @@ class FloatingService : Service() {
     }
     private fun collapse() { panel?.let { root?.removeView(it) }; panel = null; expanded = false; root?.post { lp?.let { try { wm?.updateViewLayout(root, it) } catch (x: Exception) {} } } }
 
-    private fun buildPanel(): View {
-        val w = dp(listOf(236, 280, 340)[sp.getInt("fl_size", 1).coerceIn(0, 2)]); val m = resources.displayMetrics
-        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), dp(10), dp(12), dp(12)); background = rounded(0xF2111116.toInt(), 20, 0xAAC0C7D5.toInt()); layoutParams = LinearLayout.LayoutParams(w, ViewGroup.LayoutParams.WRAP_CONTENT) }
-        val head = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        head.addView(tv("NACHT X · " + (if (isPremium("")) "PREMIUM" else "FREE"), 14f, bold = true).apply { layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
-        head.addView(chip("—") { collapse() }); head.addView(chip("✕") { stopSelf() }); drag(head, false); col.addView(head)
-        val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        val sn = Sys.snap(this); body.addView(tv("RAM ${sn.ramPct}% · Battery " + (if (sn.batt < 0) "n/a" else "${sn.batt}%"), 10f, 0xFF8B8798.toInt()).apply { setPadding(0, dp(6), 0, 0) })
-        val favs = LibStore.favs(sp); section(body, "FAVORITES", favs); section(body, "RECENT", LibStore.recents(sp).filter { it !in favs })
-        body.addView(tv("TOOLS", 10f, 0xFF8B8798.toInt(), true).apply { setPadding(0, dp(10), 0, dp(4)) }); tools(body)
-        body.addView(tv("NACHT X · Made by @UnoxidizedX", 9f, 0xFF6E7585.toInt()).apply { setPadding(0, dp(10), 0, dp(2)); gravity = Gravity.CENTER })
-        body.addView(tv("TRANSPARENCY", 10f, 0xFF8B8798.toInt(), true).apply { setPadding(0, dp(10), 0, 0) })
-        body.addView(SeekBar(this).apply { max = 100; progress = (((sp.getFloat("fl_alpha", 1f) - 0.4f) / 0.6f) * 100).toInt().coerceIn(0, 100)
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(s: SeekBar?, p: Int, u: Boolean) { val a = 0.4f + 0.6f * p / 100f; root?.alpha = a; sp.edit().putFloat("fl_alpha", a).apply() }
-                override fun onStartTrackingTouch(s: SeekBar?) {}; override fun onStopTrackingTouch(s: SeekBar?) {} }) })
-        val sc = MaxScroll(this, (m.heightPixels * 0.55f).toInt()); sc.addView(body); col.addView(sc); return col
-    }
+    private fun buildPanel(): View = DeckUi(this, sp, ui, { t -> say(t) }, { collapse() }, { stopSelf() }, { v -> drag(v, false) }, { a -> root?.alpha = a }).build()
     private fun section(body: LinearLayout, title: String, pkgs: List<String>) {
         body.addView(tv(title, 10f, 0xFF8B8798.toInt(), true).apply { setPadding(0, dp(10), 0, dp(4)) })
         if (pkgs.isEmpty()) { body.addView(tv("Nothing yet. Add favorites in the NACHT X library.", 11f, 0xFF8B8798.toInt())); return }
@@ -175,5 +158,5 @@ class FloatingService : Service() {
             row.forEach { (n, f) -> r.addView(chip(n) { f() }.apply { textSize = 10f; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) } }) }; body.addView(r) }
     }
     override fun onConfigurationChanged(c: Configuration) { super.onConfigurationChanged(c); lp?.let { clamp(it); try { wm?.updateViewLayout(root, it) } catch (e: Exception) {} } }
-    override fun onDestroy() { try { root?.let { wm?.removeView(it) } } catch (e: Exception) {}; root = null; running = false; super.onDestroy() }
+    override fun onDestroy() { DeckOverlays.removeAll(this); try { root?.let { wm?.removeView(it) } } catch (e: Exception) {}; root = null; running = false; super.onDestroy() }
 }

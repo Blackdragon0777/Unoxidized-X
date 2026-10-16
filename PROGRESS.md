@@ -36,3 +36,10 @@
 - Server: Firebase Auth + Firestore over REST (no SDK, no Gradle plugin). Rules in `firestore.rules`, setup in `CLOUD_SETUP.md`. Owner > Accounts approves payments and accounts; the user's app picks the signed key up within ~10 s. GitHub control.json route kept as a fallback.
 - Floating panel: silver theme, Premium/Free label, Premium Game Boost, Wi-Fi / Bluetooth / Airplane shortcuts.
 - NOT verified: no compiler or Android SDK in the authoring sandbox, so only the GitHub run can confirm a green check.
+
+## v15.2 update
+- Workflow: the Owner zip password is now taken from the first line of the OWNER_ZIP_PASS secret with spaces/newlines removed (a pasted note line could make the real password longer than the one in secrets_to_add.txt). The log prints the lengths (never the value). Artifacts use normal zip compression instead of "stored" (stored zips with data descriptors fail CRC checks in some phone file managers). Run summary lists SHA-256 for both APKs.
+- Floating panel redesigned as NACHT X DECK (new file `Deck.kt`, wired from `FloatingService.buildPanel`). Header with logo, Free/Premium label, clock and battery; favourite apps row; six tabs:
+  PULSE (CPU / RAM / TEMP gauges, live HUD pill with FPS + temperature), QUICK (steady refresh lock, Purge RAM, game launch, settings shortcuts, transparency), COOL (temperature card, Cool / Balanced / Performance profiles),
+  GUARD (Quiet Mode, No pop-ups, Match Mode Premium), AIM (crosshair overlay: dot / cross / ring, size, colour), LAB (Max FPS Premium, Purge RAM, Cooldown, Reset all, game target).
+  Shell-based actions need root or Shizuku and only change normal Android settings. No fake "AI" tab. Not verified on a device.

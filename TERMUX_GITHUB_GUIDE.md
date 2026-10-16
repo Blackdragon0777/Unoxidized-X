@@ -41,3 +41,14 @@ Open the failed step and find the **first** line starting with `e:` (Kotlin) or 
 
 ## 5. Server (accounts, payments, instant approval)
 Follow `CLOUD_SETUP.md` once (Firebase console, about 10 minutes).
+
+## Updating an existing upload with a new zip (keeps your git history)
+```
+cd ~/nachtx
+unzip -o ~/storage/downloads/Unoxidized-X-v15.2.zip
+cd Unoxidized-X-main
+git add -A
+git commit -m "NACHT X v15.2"
+git push
+```
+Then in GitHub open the new Actions run. Download the artifacts again (old downloads can be corrupt). You can also grab the main APK directly, without any zip, from the repo's **Releases** page.

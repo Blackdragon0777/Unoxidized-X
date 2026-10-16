@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 rm -rf generator info app/src/main/res/layout
 rm -f app/src/main/java/com/unoxidized/x/Pub.kt
 # remove stray Kotlin files that are not part of this project (left behind by older versions or other tools)
-KEEP_APP=" MainActivity.kt Core.kt Sys.kt Fps.kt Features.kt Tuner.kt Boot.kt MainSync.kt Library.kt Branding.kt FloatingService.kt Premium.kt CloudUi.kt "
+KEEP_APP=" MainActivity.kt Core.kt Sys.kt Fps.kt Features.kt Tuner.kt Boot.kt MainSync.kt Library.kt Branding.kt FloatingService.kt Premium.kt CloudUi.kt Deck.kt "
 KEEP_OWN=" OwnerActivity.kt OwnerControl.kt OwnerBranding.kt OwnerRequests.kt OwnerCloud.kt "
 for f in $(find app/src owner/src shared -name "*.kt" 2>/dev/null); do
   b=$(basename "$f")
